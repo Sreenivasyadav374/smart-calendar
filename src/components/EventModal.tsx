@@ -46,7 +46,7 @@ export const EventModal: React.FC<EventModalProps> = ({
       const start = new Date(selectedDate);
       const end = new Date(selectedDate);
       end.setHours(start.getHours() + 1);
-      
+
       setFormData({
         title: '',
         description: '',
@@ -60,9 +60,7 @@ export const EventModal: React.FC<EventModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const category = categories.find(c => c.id === formData.categoryId) || categories[0];
-    
     const eventData: Omit<CalendarEvent, 'id'> = {
       title: formData.title,
       description: formData.description,
@@ -71,7 +69,6 @@ export const EventModal: React.FC<EventModalProps> = ({
       category,
       allDay: formData.allDay
     };
-
     onSave(eventData);
     onClose();
   };
@@ -86,100 +83,108 @@ export const EventModal: React.FC<EventModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+          {/* Overlay */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50"
+            className="fixed inset-0 bg-black/40"
             onClick={onClose}
           />
-          
+
+          {/* Modal */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.96, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700"
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="relative w-full max-w-sm sm:max-w-lg bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden mx-4"
           >
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {event ? 'Edit Event' : 'New Event'}
               </h2>
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 hover:text-gray-800 dark:hover:text-white transition"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="px-4 py-4 space-y-4">
+              {/* Title */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Calendar size={16} className="inline mr-2" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <Calendar size={14} className="inline mr-1" />
                   Title
                 </label>
                 <input
                   type="text"
                   value={formData.title}
                   onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  className="w-full px-3 py-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                   required
                 />
               </div>
 
+              {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <FileText size={16} className="inline mr-2" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <FileText size={14} className="inline mr-1" />
                   Description
                 </label>
                 <textarea
+                  rows={2}
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  className="w-full px-3 py-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              {/* Start/End */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <Clock size={16} className="inline mr-2" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <Clock size={14} className="inline mr-1" />
                     Start
                   </label>
                   <input
                     type="datetime-local"
                     value={formData.start}
                     onChange={(e) => setFormData(prev => ({ ...prev, start: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full px-3 py-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     required
                   />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    <Clock size={16} className="inline mr-2" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <Clock size={14} className="inline mr-1" />
                     End
                   </label>
                   <input
                     type="datetime-local"
                     value={formData.end}
                     onChange={(e) => setFormData(prev => ({ ...prev, end: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full px-3 py-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     required
                   />
                 </div>
               </div>
 
+              {/* Category */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  <Tag size={16} className="inline mr-2" />
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <Tag size={14} className="inline mr-1" />
                   Category
                 </label>
                 <select
                   value={formData.categoryId}
                   onChange={(e) => setFormData(prev => ({ ...prev, categoryId: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  className="w-full px-3 py-1.5 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                 >
                   {categories.map(category => (
                     <option key={category.id} value={category.id}>
@@ -189,6 +194,7 @@ export const EventModal: React.FC<EventModalProps> = ({
                 </select>
               </div>
 
+              {/* All Day */}
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -198,31 +204,31 @@ export const EventModal: React.FC<EventModalProps> = ({
                   className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
                 <label htmlFor="allDay" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                  All day event
+                  All day
                 </label>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                >
-                  {event ? 'Update' : 'Create'} Event
-                </motion.button>
-                
+              {/* Buttons */}
+              <div className="flex justify-end gap-3 pt-2">
                 {event && onDelete && !event.isGoogleEvent && (
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
                     type="button"
                     onClick={handleDelete}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+                    className="px-4 py-1.5 text-sm bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition"
                   >
                     Delete
                   </motion.button>
                 )}
+                <motion.button
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  type="submit"
+                  className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition"
+                >
+                  {event ? 'Update' : 'Create'}
+                </motion.button>
               </div>
             </form>
           </motion.div>

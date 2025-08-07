@@ -1,23 +1,25 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { v4 as uuidv4 } from 'uuid';
-import { Header } from './components/Header';
-import { TaskSidebar } from './components/TaskSidebar';
-import { CalendarView } from './components/CalendarView';
-import { TaskModal } from './components/TaskModal';
-import { EventModal } from './components/EventModal';
-import { useIndexedDB } from './hooks/useIndexedDB';
-import { useOnlineStatus } from './hooks/useOnlineStatus';
-import { useTheme } from './hooks/useTheme';
-import { authManager } from './utils/auth';
-import { googleCalendarAPI } from './utils/googleCalendar';
-import { openaiService } from './utils/openai';
-import { Task, CalendarEvent, User, AITaskSuggestion } from './types';
-import { format } from 'date-fns';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { v4 as uuidv4 } from "uuid";
+import { Header } from "./components/Header";
+import { TaskSidebar } from "./components/TaskSidebar";
+import { CalendarView } from "./components/CalendarView";
+import { TaskModal } from "./components/TaskModal";
+import { EventModal } from "./components/EventModal";
+import { useIndexedDB } from "./hooks/useIndexedDB";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { useTheme } from "./hooks/useTheme";
+import { authManager } from "./utils/auth";
+import { googleCalendarAPI } from "./utils/googleCalendar";
+import { openaiService } from "./utils/openai";
+import { Task, CalendarEvent, User, AITaskSuggestion } from "./types";
+import { format } from "date-fns";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
+    null
+  );
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -25,7 +27,7 @@ function App() {
   const [aiSuggestions, setAiSuggestions] = useState<AITaskSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  
+
   const { theme, toggleTheme } = useTheme();
   const isOnline = useOnlineStatus();
   const {
@@ -38,20 +40,18 @@ function App() {
     saveEvent,
     deleteEvent,
     clearAllData,
-    refresh
+    refresh,
   } = useIndexedDB();
 
   useEffect(() => {
-    // Check for existing authentication
     const existingUser = authManager.getCurrentUser();
     if (existingUser && authManager.isAuthenticated()) {
       setUser(existingUser);
       syncWithGoogleCalendar();
     }
 
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js');
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js");
     }
   }, []);
 
@@ -63,21 +63,21 @@ function App() {
 
   const syncWithGoogleCalendar = async () => {
     if (!user || !isOnline || syncing) return;
-    
+
     try {
       setSyncing(true);
       const now = new Date();
       const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const monthAhead = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-      
-      const googleEvents = await googleCalendarAPI.getEvents(monthAgo, monthAhead);
-      
-      // Save Google events to local storage
-      await Promise.all(googleEvents.map(event => saveEvent(event)));
-      
+
+      const googleEvents = await googleCalendarAPI.getEvents(
+        monthAgo,
+        monthAhead
+      );
+      await Promise.all(googleEvents.map((event) => saveEvent(event)));
       console.log(`Synced ${googleEvents.length} events from Google Calendar`);
     } catch (error) {
-      console.error('Failed to sync with Google Calendar:', error);
+      console.error("Failed to sync with Google Calendar:", error);
     } finally {
       setSyncing(false);
     }
@@ -92,94 +92,102 @@ function App() {
     }
   };
 
-  const handleTaskSave = async (taskData: Omit<Task, 'id' | 'createdAt'>) => {
+  const handleTaskSave = async (
+    taskData: Omit<Task, "id" | "createdAt" | "userId">
+  ) => {
+    if (!user) return;
+
     const task: Task = {
       ...taskData,
       id: selectedTask?.id || uuidv4(),
-      createdAt: selectedTask?.createdAt || new Date()
+      createdAt: selectedTask?.createdAt || new Date(),
+      userId: user.id,
     };
-    
+
     await saveTask(task);
     setSelectedTask(null);
   };
 
-  const handleEventSave = async (eventData: Omit<CalendarEvent, 'id'>) => {
-    try {
-      const event: CalendarEvent = {
-        ...eventData,
-        id: selectedEvent?.id || uuidv4()
-      };
+  const handleEventSave = async (
+    eventData: Omit<CalendarEvent, "id" | "userId">
+  ) => {
+    if (!user) return;
 
-      // Save locally first
-      await saveEvent(event);
+    const event: CalendarEvent = {
+      ...eventData,
+      id: selectedEvent?.id || uuidv4(),
+      userId: user.id,
+    };
 
-      // Try to sync with Google Calendar if online and authenticated
-      if (user && isOnline && !selectedEvent) {
-        try {
-          const googleEvent = await googleCalendarAPI.createEvent(eventData);
-          await saveEvent(googleEvent);
-        } catch (error) {
-          console.error('Failed to sync event with Google Calendar:', error);
-        }
+    await saveEvent(event);
+
+    if (user && isOnline && !selectedEvent) {
+      try {
+        const googleEvent = await googleCalendarAPI.createEvent(eventData);
+        await saveEvent({ ...googleEvent, userId: user.id });
+      } catch (error) {
+        console.error("Failed to sync event with Google Calendar:", error);
       }
-
-      setSelectedEvent(null);
-    } catch (error) {
-      console.error('Failed to save event:', error);
     }
+
+    setSelectedEvent(null);
   };
 
   const handleTaskComplete = async (taskId: string) => {
-    const task = tasks.find(t => t.id === taskId);
+    const task = tasks.find((t) => t.id === taskId);
     if (task) {
       await saveTask({ ...task, completed: !task.completed });
     }
   };
 
   const handleTaskDrop = async (task: Task, date: Date) => {
+    if (!user) return;
+
     const scheduledDate = new Date(date);
-    scheduledDate.setHours(9, 0, 0, 0); // Default to 9 AM
-    
-    // Create a calendar event from the task
+    scheduledDate.setHours(9, 0, 0, 0);
+
     const event: CalendarEvent = {
       id: uuidv4(),
       title: task.title,
       description: task.description,
       start: scheduledDate,
-      end: new Date(scheduledDate.getTime() + (task.estimatedDuration || 60) * 60000),
-      category: task.category
+      end: new Date(
+        scheduledDate.getTime() + (task.estimatedDuration || 60) * 60000
+      ),
+      category: task.category,
+      userId: user.id,
     };
 
     await saveEvent(event);
-    
-    // Update task as scheduled
-    await saveTask({ ...task, scheduledDate });
+    await saveTask({ ...task, scheduledDate, userId: user.id });
   };
 
-  const handleEventDrop = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
+  const handleEventDrop = async (
+    event: CalendarEvent,
+    newStart: Date,
+    newEnd: Date
+  ) => {
     const updatedEvent = { ...event, start: newStart, end: newEnd };
     await saveEvent(updatedEvent);
 
-    // Update Google Calendar if it's a Google event
     if (event.isGoogleEvent && user && isOnline) {
       try {
         await googleCalendarAPI.updateEvent(updatedEvent);
       } catch (error) {
-        console.error('Failed to update Google Calendar event:', error);
+        console.error("Failed to update Google Calendar event:", error);
       }
     }
   };
 
   const handleDeleteEvent = async (eventId: string) => {
-    const event = events.find(e => e.id === eventId);
+    const event = events.find((e) => e.id === eventId);
     await deleteEvent(eventId);
 
-    // Delete from Google Calendar if it's a Google event
     if (event?.isGoogleEvent && event.googleEventId && user && isOnline) {
       try {
         await googleCalendarAPI.deleteEvent(event.googleEventId);
       } catch (error) {
-        console.error('Failed to delete Google Calendar event:', error);
+        console.error("Failed to delete Google Calendar event:", error);
       }
     }
   };
@@ -187,20 +195,27 @@ function App() {
   const handleGetTaskSuggestions = async () => {
     setIsLoadingSuggestions(true);
     try {
-      const completedTasks = tasks.filter(t => t.completed);
-      const currentDay = format(new Date(), 'EEEE');
-      const suggestions = await openaiService.generateTaskSuggestions(completedTasks, currentDay);
+      const completedTasks = tasks.filter((t) => t.completed);
+      const currentDay = format(new Date(), "EEEE");
+      const suggestions = await openaiService.generateTaskSuggestions(
+        completedTasks,
+        currentDay
+      );
+      console.log("AI Suggestions:", suggestions);
       setAiSuggestions(suggestions);
     } catch (error) {
-      console.error('Failed to get AI suggestions:', error);
+      console.error("Failed to get AI suggestions:", error);
     } finally {
       setIsLoadingSuggestions(false);
     }
   };
 
   const handleAcceptSuggestion = async (suggestion: AITaskSuggestion) => {
-    const category = categories.find(c => c.id === suggestion.category) || categories[0];
-    
+    if (!user) return;
+
+    const category =
+      categories.find((c) => c.id === suggestion.category) || categories[0];
+
     const task: Task = {
       id: uuidv4(),
       title: suggestion.title,
@@ -209,11 +224,12 @@ function App() {
       priority: suggestion.priority,
       estimatedDuration: suggestion.estimatedDuration,
       completed: false,
-      createdAt: new Date()
+      createdAt: new Date(),
+      userId: user.id,
     };
 
     await saveTask(task);
-    setAiSuggestions(prev => prev.filter(s => s !== suggestion));
+    setAiSuggestions((prev) => prev.filter((s) => s !== suggestion));
   };
 
   const openTaskModal = (task?: Task) => {
@@ -232,14 +248,16 @@ function App() {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading your calendar...</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Loading your calendar...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="rounded-xl shadow-lg min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
       <Header
         user={user}
         onAuthChange={handleAuthChange}
@@ -248,31 +266,36 @@ function App() {
         isOnline={isOnline}
       />
 
-      <div className="flex h-[calc(100vh-80px)]">
-        <TaskSidebar
-          tasks={tasks}
-          categories={categories}
-          onTaskComplete={handleTaskComplete}
-          onTaskDelete={deleteTask}
-          onTaskEdit={openTaskModal}
-          onNewTask={() => openTaskModal()}
-          onTaskSuggestions={handleGetTaskSuggestions}
-          suggestions={aiSuggestions}
-          onAcceptSuggestion={handleAcceptSuggestion}
-          isLoadingSuggestions={isLoadingSuggestions}
-        />
+      <div className="flex flex-col sm:flex-row h-[calc(100vh-80px)] overflow-hidden px-2 sm:px-4 py-2 gap-2">
+        <div className="flex-none sm:basis-1/4 min-w-[280px] max-w-sm h-full overflow-hidden">
+          <TaskSidebar
+            tasks={tasks}
+            categories={categories}
+            onTaskComplete={handleTaskComplete}
+            onTaskDelete={deleteTask}
+            onTaskEdit={openTaskModal}
+            onNewTask={() => openTaskModal()}
+            onTaskSuggestions={handleGetTaskSuggestions}
+            suggestions={aiSuggestions}
+            onAcceptSuggestion={handleAcceptSuggestion}
+            isLoadingSuggestions={isLoadingSuggestions}
+          />
+        </div>
 
-        <CalendarView
-          events={events}
-          onEventClick={(event) => openEventModal(event)}
-          onDateSelect={(date) => openEventModal(undefined, date)}
-          onEventDrop={handleEventDrop}
-          onTaskDrop={handleTaskDrop}
-          theme={theme}
-        />
+        <div className="rounded-xl shadow-lg flex-grow sm:basis-3/4 h-full overflow-hidden flex flex-col">
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <CalendarView
+              events={events}
+              onEventClick={(event) => openEventModal(event)}
+              onDateSelect={(date) => openEventModal(undefined, date)}
+              onEventDrop={handleEventDrop}
+              onTaskDrop={handleTaskDrop}
+              theme={theme}
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Modals */}
       <TaskModal
         isOpen={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
@@ -288,10 +311,9 @@ function App() {
         onDelete={handleDeleteEvent}
         event={selectedEvent}
         categories={categories}
-        selectedDate={selectedDate}
+        selectedDate={selectedDate || new Date()}
       />
 
-      {/* Sync Indicator */}
       <AnimatePresence>
         {syncing && (
           <motion.div

@@ -3,64 +3,104 @@ import { User } from '../types';
 declare global {
   interface Window {
     google: any;
-    gapi: any;
   }
 }
 
 class AuthManager {
   private user: User | null = null;
   private accessToken: string | null = null;
+  private tokenClient: google.accounts.oauth2.TokenClient | null = null;
 
-  async init(): Promise<void> {
-    return new Promise((resolve) => {
-      if (window.gapi) {
+ init(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (this.tokenClient) {
+      resolve();
+      return;
+    }
+
+    if (window.google?.accounts?.oauth2) {
+      resolve();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      if (window.google?.accounts?.oauth2) {
         resolve();
-        return;
+      } else {
+        reject(new Error('Google Identity Services failed to load'));
       }
+    };
 
-      const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
-      script.onload = () => {
-        window.gapi.load('auth2:client', resolve);
-      };
-      document.head.appendChild(script);
+    script.onerror = () => {
+      reject(new Error('Failed to load Google Identity Services script'));
+    };
+
+    document.head.appendChild(script);
+  });
+}
+
+
+  signIn(): Promise<User> {
+  return new Promise(async (resolve, reject) => {
+    try {
+      await this.init();
+
+      this.tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile',
+        callback: async (tokenResponse: any) => {
+          if (tokenResponse.error) {
+            reject(tokenResponse);
+            return;
+          }
+
+          this.accessToken = tokenResponse.access_token;
+          localStorage.setItem('accessToken', this.accessToken || '');
+          const user = await this.fetchUserInfo();
+          resolve(user);
+        }
+      });
+if (!this.tokenClient) {
+  throw new Error("Token client is not initialized.");
+}
+this.tokenClient.requestAccessToken();
+    } catch (err) {
+      console.error("Sign in failed:", err);
+      reject(err);
+    }
+  });
+}
+
+
+  async fetchUserInfo(): Promise<User> {
+    if (!this.accessToken) throw new Error('No access token available');
+
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: {
+        Authorization: `Bearer ${this.accessToken}`
+      }
     });
-  }
 
-  async signIn(): Promise<User> {
-    await this.init();
-    
-    await window.gapi.client.init({
-      apiKey: import.meta.env.VITE_GOOGLE_API_KEY,
-      clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
-      discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
-      scope: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email'
-    });
+    if (!res.ok) throw new Error('Failed to fetch user info');
 
-    const authInstance = window.gapi.auth2.getAuthInstance();
-    const googleUser = await authInstance.signIn();
-    const profile = googleUser.getBasicProfile();
-    
-    this.accessToken = googleUser.getAuthResponse().access_token;
+    const profile = await res.json();
     this.user = {
-      id: profile.getId(),
-      email: profile.getEmail(),
-      name: profile.getName(),
-      picture: profile.getImageUrl()
+      id: profile.sub,
+      email: profile.email,
+      name: profile.name,
+      picture: profile.picture
     };
 
     localStorage.setItem('user', JSON.stringify(this.user));
-    localStorage.setItem('accessToken', this.accessToken);
-
     return this.user;
   }
 
-  async signOut(): Promise<void> {
-    if (window.gapi?.auth2) {
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      await authInstance.signOut();
-    }
-    
+  signOut(): void {
     this.user = null;
     this.accessToken = null;
     localStorage.removeItem('user');
@@ -69,10 +109,8 @@ class AuthManager {
 
   getCurrentUser(): User | null {
     if (!this.user) {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        this.user = JSON.parse(storedUser);
-      }
+      const stored = localStorage.getItem('user');
+      if (stored) this.user = JSON.parse(stored);
     }
     return this.user;
   }
@@ -85,7 +123,7 @@ class AuthManager {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getCurrentUser() && !!this.getAccessToken();
+    return !!this.getAccessToken();
   }
 }
 

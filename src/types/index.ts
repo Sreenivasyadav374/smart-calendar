@@ -16,6 +16,7 @@ export interface Task {
   dueDate?: Date;
   scheduledDate?: Date;
   estimatedDuration?: number; // in minutes
+  userId: string;
 }
 
 export interface CalendarEvent {
@@ -28,6 +29,7 @@ export interface CalendarEvent {
   isGoogleEvent?: boolean;
   googleEventId?: string;
   allDay?: boolean;
+  userId: string;
 }
 
 export interface TaskCategory {

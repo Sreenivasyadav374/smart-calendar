@@ -36,46 +36,52 @@ class GoogleCalendarAPI {
     })) || [];
   }
 
-  async createEvent(event: Omit<CalendarEvent, 'id' | 'isGoogleEvent' | 'googleEventId'>): Promise<CalendarEvent> {
-    const accessToken = authManager.getAccessToken();
-    if (!accessToken) throw new Error('Not authenticated');
+async createEvent(event: Omit<CalendarEvent, 'id' | 'isGoogleEvent' | 'googleEventId' | 'userId'>): Promise<CalendarEvent> {
+  const accessToken = authManager.getAccessToken();
+  if (!accessToken) throw new Error('Not authenticated');
 
-    const eventData = {
-      summary: event.title,
-      description: event.description,
-      start: {
-        dateTime: event.start.toISOString(),
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      },
-      end: {
-        dateTime: event.end.toISOString(),
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      }
-    };
+  const user = authManager.getCurrentUser();
+  if (!user) throw new Error('User not found');
 
-    const response = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${accessToken}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(eventData)
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to create Google Calendar event');
+  const eventData = {
+    summary: event.title,
+    description: event.description,
+    start: {
+      dateTime: event.start.toISOString(),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    },
+    end: {
+      dateTime: event.end.toISOString(),
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone
     }
+  };
 
-    const createdEvent = await response.json();
-    return {
-      ...event,
-      id: `google-${createdEvent.id}`,
-      isGoogleEvent: true,
-      googleEventId: createdEvent.id
-    };
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events?access_token=${accessToken}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(eventData)
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to create Google Calendar event');
   }
+
+  const createdEvent = await response.json();
+
+  return {
+    ...event,
+    id: `google-${createdEvent.id}`,
+    isGoogleEvent: true,
+    googleEventId: createdEvent.id,
+    userId: user.id, // ✅ this fixes the error
+  };
+}
+
 
   async updateEvent(event: CalendarEvent): Promise<CalendarEvent> {
     const accessToken = authManager.getAccessToken();

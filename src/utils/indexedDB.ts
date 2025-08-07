@@ -58,9 +58,18 @@ class IndexedDBManager {
   }
 
   async saveTask(task: Task): Promise<void> {
-    if (!this.db) await this.init();
-    await this.db!.put('tasks', task);
-  }
+  if (!this.db) await this.init();
+
+  if (!task.id) task.id = crypto.randomUUID();
+
+  console.log("Saving task:", task);
+
+  await this.db.put('tasks', task);
+
+  const tasks = await this.db.getAll('tasks');
+  console.log("Current tasks in DB:", tasks);
+}
+
 
   async deleteTask(id: string): Promise<void> {
     if (!this.db) await this.init();
