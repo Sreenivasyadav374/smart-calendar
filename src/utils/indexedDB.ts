@@ -64,9 +64,9 @@ class IndexedDBManager {
 
   console.log("Saving task:", task);
 
-  await this.db.put('tasks', task);
+  await this.db?.put('tasks', task);
 
-  const tasks = await this.db.getAll('tasks');
+  const tasks = await this.db?.getAll('tasks');
   console.log("Current tasks in DB:", tasks);
 }
 

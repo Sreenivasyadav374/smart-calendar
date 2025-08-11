@@ -14,6 +14,9 @@ import { googleCalendarAPI } from "./utils/googleCalendar";
 import { openaiService } from "./utils/openai";
 import { Task, CalendarEvent, User, AITaskSuggestion } from "./types";
 import { format } from "date-fns";
+import { useTasksApi } from "./hooks/useTasksApi";
+import { useEventsApi } from "./hooks/useEventsApi";
+import { useCategoriesApi } from "./hooks/useCategoriesApi";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -30,18 +33,34 @@ function App() {
 
   const { theme, toggleTheme } = useTheme();
   const isOnline = useOnlineStatus();
+   const {
+  //   tasks,
+  //   events,
+  //   categories,
+  //   loading,
+  //   saveTask,
+  //   deleteTask,
+  //   saveEvent,
+  //   deleteEvent,
+     clearAllData,
+  //   refresh,
+  } = useIndexedDB();
+
+  const { tasks, loading: tasksLoading, saveTask, deleteTask } = useTasksApi();
   const {
-    tasks,
     events,
-    categories,
-    loading,
-    saveTask,
-    deleteTask,
+    loading: eventsLoading,
     saveEvent,
     deleteEvent,
-    clearAllData,
-    refresh,
-  } = useIndexedDB();
+  } = useEventsApi();
+  const {
+    categories,
+    loading: categoriesLoading,
+    saveCategory,
+    deleteCategory,
+  } = useCategoriesApi();
+
+  const loading = tasksLoading || eventsLoading || categoriesLoading;
 
   useEffect(() => {
     const existingUser = authManager.getCurrentUser();
