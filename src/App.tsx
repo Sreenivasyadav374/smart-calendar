@@ -6,6 +6,8 @@ import { TaskSidebar } from "./components/TaskSidebar";
 import { CalendarView } from "./components/CalendarView";
 import { TaskModal } from "./components/TaskModal";
 import { EventModal } from "./components/EventModal";
+import { NotificationSystem } from "./components/NotificationSystem";
+import { WeeklySummary } from "./components/WeeklySummary";
 import { useIndexedDB } from "./hooks/useIndexedDB";
 import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import { useTheme } from "./hooks/useTheme";
@@ -17,48 +19,27 @@ import { format } from "date-fns";
 import { useTasksApi } from "./hooks/useTasksApi";
 import { useEventsApi } from "./hooks/useEventsApi";
 import { useCategoriesApi } from "./hooks/useCategoriesApi";
+import { BarChart3 } from "lucide-react";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-    null
-  );
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isWeeklySummaryOpen, setIsWeeklySummaryOpen] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<AITaskSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
   const isOnline = useOnlineStatus();
-   const {
-  //   tasks,
-  //   events,
-  //   categories,
-  //   loading,
-  //   saveTask,
-  //   deleteTask,
-  //   saveEvent,
-  //   deleteEvent,
-     clearAllData,
-  //   refresh,
-  } = useIndexedDB();
+  const { clearAllData } = useIndexedDB();
 
   const { tasks, loading: tasksLoading, saveTask, deleteTask } = useTasksApi();
-  const {
-    events,
-    loading: eventsLoading,
-    saveEvent,
-    deleteEvent,
-  } = useEventsApi();
-  const {
-    categories,
-    loading: categoriesLoading,
-    saveCategory,
-    deleteCategory,
-  } = useCategoriesApi();
+  const { events, loading: eventsLoading, saveEvent, deleteEvent } = useEventsApi();
+  const { categories, loading: categoriesLoading, saveCategory, deleteCategory } = useCategoriesApi();
 
   const loading = tasksLoading || eventsLoading || categoriesLoading;
 
@@ -89,10 +70,7 @@ function App() {
       const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const monthAhead = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-      const googleEvents = await googleCalendarAPI.getEvents(
-        monthAgo,
-        monthAhead
-      );
+      const googleEvents = await googleCalendarAPI.getEvents(monthAgo, monthAhead);
       await Promise.all(googleEvents.map((event) => saveEvent(event)));
       console.log(`Synced ${googleEvents.length} events from Google Calendar`);
     } catch (error) {
@@ -111,9 +89,7 @@ function App() {
     }
   };
 
-  const handleTaskSave = async (
-    taskData: Omit<Task, "id" | "createdAt" | "userId">
-  ) => {
+  const handleTaskSave = async (taskData: Omit<Task, "id" | "createdAt" | "userId">) => {
     if (!user) return;
 
     const task: Task = {
@@ -127,9 +103,7 @@ function App() {
     setSelectedTask(null);
   };
 
-  const handleEventSave = async (
-    eventData: Omit<CalendarEvent, "id" | "userId">
-  ) => {
+  const handleEventSave = async (eventData: Omit<CalendarEvent, "id" | "userId">) => {
     if (!user) return;
 
     const event: CalendarEvent = {
@@ -170,9 +144,7 @@ function App() {
       title: task.title,
       description: task.description,
       start: scheduledDate,
-      end: new Date(
-        scheduledDate.getTime() + (task.estimatedDuration || 60) * 60000
-      ),
+      end: new Date(scheduledDate.getTime() + (task.estimatedDuration || 60) * 60000),
       category: task.category,
       userId: user.id,
     };
@@ -181,11 +153,7 @@ function App() {
     await saveTask({ ...task, scheduledDate, userId: user.id });
   };
 
-  const handleEventDrop = async (
-    event: CalendarEvent,
-    newStart: Date,
-    newEnd: Date
-  ) => {
+  const handleEventDrop = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
     const updatedEvent = { ...event, start: newStart, end: newEnd };
     await saveEvent(updatedEvent);
 
@@ -216,10 +184,7 @@ function App() {
     try {
       const completedTasks = tasks.filter((t) => t.completed);
       const currentDay = format(new Date(), "EEEE");
-      const suggestions = await openaiService.generateTaskSuggestions(
-        completedTasks,
-        currentDay
-      );
+      const suggestions = await openaiService.generateTaskSuggestions(completedTasks, currentDay);
       console.log("AI Suggestions:", suggestions);
       setAiSuggestions(suggestions);
     } catch (error) {
@@ -232,8 +197,7 @@ function App() {
   const handleAcceptSuggestion = async (suggestion: AITaskSuggestion) => {
     if (!user) return;
 
-    const category =
-      categories.find((c) => c.id === suggestion.category) || categories[0];
+    const category = categories.find((c) => c.id === suggestion.category) || categories[0];
 
     const task: Task = {
       id: uuidv4(),
@@ -264,11 +228,18 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-6"
+          />
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Loading Smart Calendar
+          </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Loading your calendar...
+            Preparing your intelligent workspace...
           </p>
         </div>
       </div>
@@ -276,7 +247,7 @@ function App() {
   }
 
   return (
-    <div className="rounded-xl shadow-lg min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-all duration-500">
       <Header
         user={user}
         onAuthChange={handleAuthChange}
@@ -285,8 +256,9 @@ function App() {
         isOnline={isOnline}
       />
 
-      <div className="flex flex-col sm:flex-row h-[calc(100vh-80px)] overflow-hidden px-2 sm:px-4 py-2 gap-2">
-        <div className="flex-none sm:basis-1/4 min-w-[280px] max-w-sm h-full overflow-hidden">
+      <div className="flex flex-col lg:flex-row h-[calc(100vh-64px)] overflow-hidden px-4 py-4 gap-4">
+        {/* Task Sidebar */}
+        <div className="flex-none lg:basis-1/3 xl:basis-1/4 min-w-[320px] max-w-md h-full overflow-hidden">
           <TaskSidebar
             tasks={tasks}
             categories={categories}
@@ -301,20 +273,33 @@ function App() {
           />
         </div>
 
-        <div className="rounded-xl shadow-lg flex-grow sm:basis-3/4 h-full overflow-hidden flex flex-col">
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <CalendarView
-              events={events}
-              onEventClick={(event) => openEventModal(event)}
-              onDateSelect={(date) => openEventModal(undefined, date)}
-              onEventDrop={handleEventDrop}
-              onTaskDrop={handleTaskDrop}
-              theme={theme}
-            />
-          </div>
+        {/* Calendar View */}
+        <div className="flex-grow lg:basis-2/3 xl:basis-3/4 h-full overflow-hidden flex flex-col">
+          <CalendarView
+            events={events}
+            onEventClick={(event) => openEventModal(event)}
+            onDateSelect={(date) => openEventModal(undefined, date)}
+            onEventDrop={handleEventDrop}
+            onTaskDrop={handleTaskDrop}
+            theme={theme}
+          />
         </div>
       </div>
 
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3">
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsWeeklySummaryOpen(true)}
+          className="p-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full shadow-lg hover:shadow-xl transition-all"
+          title="Weekly Summary"
+        >
+          <BarChart3 size={24} />
+        </motion.button>
+      </div>
+
+      {/* Modals */}
       <TaskModal
         isOpen={isTaskModalOpen}
         onClose={() => setIsTaskModalOpen(false)}
@@ -333,16 +318,37 @@ function App() {
         selectedDate={selectedDate || new Date()}
       />
 
+      <WeeklySummary
+        isOpen={isWeeklySummaryOpen}
+        onClose={() => setIsWeeklySummaryOpen(false)}
+        tasks={tasks}
+        events={events}
+      />
+
+      {/* Notification System */}
+      <div className="fixed top-4 right-4 z-50">
+        <NotificationSystem
+          tasks={tasks}
+          events={events}
+          onTaskComplete={handleTaskComplete}
+          onEventClick={(eventId) => {
+            const event = events.find(e => e.id === eventId);
+            if (event) openEventModal(event);
+          }}
+        />
+      </div>
+
+      {/* Sync Status */}
       <AnimatePresence>
         {syncing && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2"
+            className="fixed bottom-4 left-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-2xl shadow-lg flex items-center gap-3"
           >
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            Syncing with Google Calendar...
+            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <span className="font-medium">Syncing with Google Calendar...</span>
           </motion.div>
         )}
       </AnimatePresence>
