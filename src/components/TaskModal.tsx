@@ -73,52 +73,84 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const processNaturalLanguage = async (input: string) => {
     setIsProcessingNLP(true);
     try {
-      // Simple NLP processing - in a real app, you'd use a more sophisticated service
+      // Enhanced NLP processing
       const lowerInput = input.toLowerCase();
       
-      // Extract time patterns
+      // Extract time patterns with more sophistication
       const timePatterns = {
         'tomorrow': () => {
           const tomorrow = new Date();
           tomorrow.setDate(tomorrow.getDate() + 1);
           return tomorrow;
         },
+        'today': () => new Date(),
         'next week': () => {
           const nextWeek = new Date();
           nextWeek.setDate(nextWeek.getDate() + 7);
           return nextWeek;
         },
-        'monday': () => {
-          const date = new Date();
-          const day = date.getDay();
-          const diff = (1 + 7 - day) % 7;
-          date.setDate(date.getDate() + diff);
-          return date;
-        }
+        'monday': () => getNextWeekday(1),
+        'tuesday': () => getNextWeekday(2),
+        'wednesday': () => getNextWeekday(3),
+        'thursday': () => getNextWeekday(4),
+        'friday': () => getNextWeekday(5),
+        'saturday': () => getNextWeekday(6),
+        'sunday': () => getNextWeekday(0),
+      };
+      
+      const getNextWeekday = (targetDay: number): Date => {
+        const date = new Date();
+        const currentDay = date.getDay();
+        const daysUntilTarget = (targetDay + 7 - currentDay) % 7;
+        date.setDate(date.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget));
+        return date;
       };
 
       // Extract priority
       let priority: 'low' | 'medium' | 'high' = 'medium';
-      if (lowerInput.includes('urgent') || lowerInput.includes('important') || lowerInput.includes('asap')) {
+      if (lowerInput.includes('urgent') || lowerInput.includes('important') || 
+          lowerInput.includes('asap') || lowerInput.includes('critical') ||
+          lowerInput.includes('high priority')) {
         priority = 'high';
-      } else if (lowerInput.includes('low priority') || lowerInput.includes('when possible')) {
+      } else if (lowerInput.includes('low priority') || lowerInput.includes('when possible') ||
+                 lowerInput.includes('someday') || lowerInput.includes('maybe')) {
         priority = 'low';
       }
 
-      // Extract category
+      // Enhanced category detection
       let categoryId = 'work';
-      if (lowerInput.includes('personal') || lowerInput.includes('home')) categoryId = 'personal';
-      if (lowerInput.includes('health') || lowerInput.includes('exercise') || lowerInput.includes('doctor')) categoryId = 'health';
-      if (lowerInput.includes('learn') || lowerInput.includes('study') || lowerInput.includes('course')) categoryId = 'learning';
-      if (lowerInput.includes('meeting') || lowerInput.includes('call') || lowerInput.includes('social')) categoryId = 'social';
+      const categoryKeywords = {
+        'personal': ['personal', 'home', 'family', 'self', 'life'],
+        'health': ['health', 'exercise', 'doctor', 'gym', 'workout', 'medical', 'fitness'],
+        'learning': ['learn', 'study', 'course', 'read', 'research', 'education', 'training'],
+        'social': ['meeting', 'call', 'social', 'friend', 'party', 'event', 'dinner'],
+        'work': ['work', 'project', 'office', 'business', 'client', 'deadline', 'report']
+      };
+      
+      for (const [category, keywords] of Object.entries(categoryKeywords)) {
+        if (keywords.some(keyword => lowerInput.includes(keyword))) {
+          categoryId = category;
+          break;
+        }
+      }
 
-      // Extract duration
-      const durationMatch = lowerInput.match(/(\d+)\s*(hour|hr|minute|min)/);
+      // Extract duration with more patterns
+      const durationPatterns = [
+        /(\d+)\s*(hour|hr)s?/,
+        /(\d+)\s*(minute|min)s?/,
+        /(\d+)h/,
+        /(\d+)m/
+      ];
+      
       let estimatedDuration = 30;
-      if (durationMatch) {
-        const value = parseInt(durationMatch[1]);
-        const unit = durationMatch[2];
-        estimatedDuration = unit.includes('hour') || unit.includes('hr') ? value * 60 : value;
+      for (const pattern of durationPatterns) {
+        const match = lowerInput.match(pattern);
+        if (match) {
+          const value = parseInt(match[1]);
+          const unit = match[2] || match[0].slice(-1);
+          estimatedDuration = (unit.includes('h') || unit.includes('hour')) ? value * 60 : value;
+          break;
+        }
       }
 
       // Extract date
@@ -132,9 +164,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
 
       // Clean title (remove time/priority indicators)
       let cleanTitle = input
-        .replace(/\b(tomorrow|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, '')
-        .replace(/\b(urgent|important|asap|low priority|when possible)\b/gi, '')
+        .replace(/\b(today|tomorrow|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, '')
+        .replace(/\b(urgent|important|asap|critical|low priority|high priority|when possible|someday|maybe)\b/gi, '')
         .replace(/\b\d+\s*(hour|hr|minute|min)s?\b/gi, '')
+        .replace(/\b\d+[hm]\b/gi, '')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -157,8 +190,10 @@ export const TaskModal: React.FC<TaskModalProps> = ({
   const handleTitleChange = (value: string) => {
     setFormData(prev => ({ ...prev, title: value }));
     
-    // Trigger NLP processing if the input looks like natural language
-    if (value.length > 10 && (value.includes(' ') && (value.includes('tomorrow') || value.includes('urgent') || value.includes('meeting')))) {
+    // Trigger NLP processing if input looks like natural language
+    if (value.length > 5 && value.includes(' ') && 
+        (value.includes('tomorrow') || value.includes('today') || value.includes('urgent') || 
+         value.includes('meeting') || value.match(/\d+\s*(hour|hr|minute|min|h|m)/))) {
       processNaturalLanguage(value);
     }
   };

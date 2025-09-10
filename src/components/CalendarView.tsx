@@ -3,6 +3,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
+import listPlugin from "@fullcalendar/list";
 import { CalendarEvent, Task } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Calendar, Clock, Grid3X3, List, Filter } from "lucide-react";
@@ -57,13 +58,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     selectedCategories.length === 0 || selectedCategories.includes(event.category.id)
   );
 
-  const calendarEvents = filteredEvents.map((event) => ({
+  const calendarEvents = filteredEvents.map((event) => {
+    const categoryColor = event.category?.color || '#3B82F6';
+    return {
     id: event.id,
     title: event.title,
     start: event.start,
     end: event.end,
-    backgroundColor: event.category.color,
-    borderColor: event.category.color,
+    backgroundColor: categoryColor,
+    borderColor: categoryColor,
     textColor: "#ffffff",
     classNames: ['premium-event'],
     extendedProps: {
@@ -71,7 +74,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       category: event.category,
       isGoogleEvent: event.isGoogleEvent,
     },
-  }));
+  };
+  });
 
   const viewButtons = [
     { id: "dayGridMonth", label: "Month", icon: Grid3X3 },
@@ -218,7 +222,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       >
         <FullCalendar
           ref={calendarRef}
-          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
           initialView="dayGridMonth"
           events={calendarEvents}
           editable={true}
@@ -228,6 +232,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           weekends={true}
           height="100%"
           headerToolbar={false}
+          nowIndicator={true}
+          scrollTime="08:00:00"
+          slotMinTime="06:00:00"
+          slotMaxTime="22:00:00"
+          allDaySlot={true}
+          eventDisplay="block"
+          displayEventTime={true}
+          eventTimeFormat={{
+            hour: 'numeric',
+            minute: '2-digit',
+            omitZeroMinute: false,
+            meridiem: 'short'
+          }}
           select={(info) => onDateSelect(info.start)}
           eventClick={(info) => {
             const event = events.find((e) => e.id === info.event.id);
@@ -246,9 +263,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           }}
           droppable={true}
           drop={handleDrop}
+          eventMouseEnter={(info) => {
+            info.el.style.transform = 'scale(1.02)';
+            info.el.style.zIndex = '1000';
+          }}
+          eventMouseLeave={(info) => {
+            info.el.style.transform = 'scale(1)';
+            info.el.style.zIndex = 'auto';
+          }}
           eventDidMount={(info) => {
             // Add premium styling to events
             info.el.classList.add('premium-event-element');
+            
+            // Add tooltip
+            const event = events.find(e => e.id === info.event.id);
+            if (event?.description) {
+              info.el.title = event.description;
+            }
           }}
           dayCellDidMount={(info) => {
             // Add premium styling to day cells

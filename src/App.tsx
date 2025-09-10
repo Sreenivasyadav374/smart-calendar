@@ -32,6 +32,7 @@ function App() {
   const [aiSuggestions, setAiSuggestions] = useState<AITaskSuggestion[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   const { theme, toggleTheme } = useTheme();
   const isOnline = useOnlineStatus();
@@ -56,11 +57,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (user && isOnline && !syncing) {
+    if (user && isOnline && !syncing && shouldSync()) {
       syncWithGoogleCalendar();
     }
   }, [user, isOnline]);
 
+  const shouldSync = (): boolean => {
+    if (!lastSyncTime) return true;
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    return lastSyncTime < fiveMinutesAgo;
+  };
   const syncWithGoogleCalendar = async () => {
     if (!user || !isOnline || syncing) return;
 
@@ -70,11 +76,29 @@ function App() {
       const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const monthAhead = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-      const googleEvents = await googleCalendarAPI.getEvents(monthAgo, monthAhead);
-      await Promise.all(googleEvents.map((event) => saveEvent(event)));
-      console.log(`Synced ${googleEvents.length} events from Google Calendar`);
+      // Enhanced sync with bidirectional support
+      const syncResult = await googleCalendarAPI.syncEvents(events);
+      
+      // Process sync results
+      await Promise.all([
+        ...syncResult.created.map(event => saveEvent(event)),
+        ...syncResult.updated.map(event => saveEvent(event))
+      ]);
+      
+      // Handle deleted events
+      for (const deletedId of syncResult.deleted) {
+        await deleteEvent(deletedId);
+      }
+      
+      setLastSyncTime(new Date());
+      console.log(`Sync completed: ${syncResult.created.length} created, ${syncResult.updated.length} updated, ${syncResult.deleted.length} deleted`);
     } catch (error) {
       console.error("Failed to sync with Google Calendar:", error);
+      // Show user-friendly error message
+      if (error instanceof Error && error.message.includes('Authentication expired')) {
+        // Could trigger re-authentication flow
+        console.warn('Google Calendar authentication expired');
+      }
     } finally {
       setSyncing(false);
     }
@@ -101,6 +125,7 @@ function App() {
 
     await saveTask(task);
     setSelectedTask(null);
+    setIsTaskModalOpen(false);
   };
 
   const handleEventSave = async (eventData: Omit<CalendarEvent, "id" | "userId">) => {
@@ -114,7 +139,8 @@ function App() {
 
     await saveEvent(event);
 
-    if (user && isOnline && !selectedEvent) {
+    // Sync with Google Calendar if online and not a Google event
+    if (user && isOnline && !event.isGoogleEvent) {
       try {
         const googleEvent = await googleCalendarAPI.createEvent(eventData);
         await saveEvent({ ...googleEvent, userId: user.id });
@@ -124,6 +150,7 @@ function App() {
     }
 
     setSelectedEvent(null);
+    setIsEventModalOpen(false);
   };
 
   const handleTaskComplete = async (taskId: string) => {
@@ -157,17 +184,22 @@ function App() {
     const updatedEvent = { ...event, start: newStart, end: newEnd };
     await saveEvent(updatedEvent);
 
-    if (event.isGoogleEvent && user && isOnline) {
+    // Sync with Google Calendar if it's a Google event
+    if (event.isGoogleEvent && event.googleEventId && user && isOnline) {
       try {
         await googleCalendarAPI.updateEvent(updatedEvent);
       } catch (error) {
         console.error("Failed to update Google Calendar event:", error);
+        // Revert the change if Google sync fails
+        await saveEvent(event);
       }
     }
   };
 
   const handleDeleteEvent = async (eventId: string) => {
     const event = events.find((e) => e.id === eventId);
+    if (!event) return;
+    
     await deleteEvent(eventId);
 
     if (event?.isGoogleEvent && event.googleEventId && user && isOnline) {
@@ -175,6 +207,7 @@ function App() {
         await googleCalendarAPI.deleteEvent(event.googleEventId);
       } catch (error) {
         console.error("Failed to delete Google Calendar event:", error);
+        // Could show user notification about partial failure
       }
     }
   };
@@ -182,13 +215,15 @@ function App() {
   const handleGetTaskSuggestions = async () => {
     setIsLoadingSuggestions(true);
     try {
-      const completedTasks = tasks.filter((t) => t.completed);
+      const recentTasks = tasks.slice(-20); // Get more recent context
       const currentDay = format(new Date(), "EEEE");
-      const suggestions = await openaiService.generateTaskSuggestions(completedTasks, currentDay);
+      const userGoals = ['productivity', 'health', 'learning']; // Could be user-configurable
+      const suggestions = await openaiService.generateTaskSuggestions(recentTasks, currentDay, userGoals);
       console.log("AI Suggestions:", suggestions);
       setAiSuggestions(suggestions);
     } catch (error) {
       console.error("Failed to get AI suggestions:", error);
+      // Show user-friendly error message
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -226,6 +261,32 @@ function App() {
     setIsEventModalOpen(true);
   };
 
+  // Enhanced keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        switch (e.key) {
+          case 'n':
+            e.preventDefault();
+            openTaskModal();
+            break;
+          case 'e':
+            e.preventDefault();
+            openEventModal(undefined, new Date());
+            break;
+          case 's':
+            e.preventDefault();
+            if (user && isOnline) {
+              syncWithGoogleCalendar();
+            }
+            break;
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [user, isOnline]);
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
@@ -349,6 +410,17 @@ function App() {
           >
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
             <span className="font-medium">Syncing with Google Calendar...</span>
+          </motion.div>
+        )}
+        
+        {/* Last Sync Indicator */}
+        {lastSyncTime && !syncing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed bottom-4 left-4 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 px-4 py-2 rounded-xl text-sm"
+          >
+            Last sync: {lastSyncTime.toLocaleTimeString()}
           </motion.div>
         )}
       </AnimatePresence>

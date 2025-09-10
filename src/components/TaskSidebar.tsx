@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Filter, Search, Sparkles, Calendar, Clock, Flag, CheckCircle2, Circle, Trash2, Edit3 } from "lucide-react";
+import { Plus, Filter, Search, Sparkles, Calendar, Clock, Flag, CheckCircle2, Circle, Trash2, Edit3, SortAsc, SortDesc } from "lucide-react";
 import { Task, TaskCategory, AITaskSuggestion } from "../types";
 import { PRIORITY_COLORS } from "../utils/constants";
 
@@ -34,8 +34,10 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   const [selectedPriority, setSelectedPriority] = useState<string>("all");
   const [showCompleted, setShowCompleted] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [sortBy, setSortBy] = useState<'dueDate' | 'priority' | 'created' | 'title'>('dueDate');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const filteredTasks = tasks.filter((task) => {
+  const filteredAndSortedTasks = tasks.filter((task) => {
     const matchesSearch =
       task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       task.description?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -46,11 +48,41 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
     const matchesCompleted = showCompleted || !task.completed;
 
     return matchesSearch && matchesCategory && matchesPriority && matchesCompleted;
+  }).sort((a, b) => {
+    let comparison = 0;
+    
+    switch (sortBy) {
+      case 'dueDate':
+        const aDate = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const bDate = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        comparison = aDate - bDate;
+        break;
+      case 'priority':
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+        break;
+      case 'created':
+        comparison = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        break;
+      case 'title':
+        comparison = a.title.localeCompare(b.title);
+        break;
+    }
+    
+    return sortOrder === 'asc' ? comparison : -comparison;
   });
 
-  const incompleteTasks = filteredTasks.filter((task) => !task.completed);
-  const completedTasks = filteredTasks.filter((task) => task.completed);
+  const incompleteTasks = filteredAndSortedTasks.filter((task) => !task.completed);
+  const completedTasks = filteredAndSortedTasks.filter((task) => task.completed);
 
+  const toggleSort = (newSortBy: typeof sortBy) => {
+    if (sortBy === newSortBy) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(newSortBy);
+      setSortOrder('asc');
+    }
+  };
   const TaskCard: React.FC<{ task: Task; draggable?: boolean }> = ({ task, draggable = true }) => (
     <motion.div
       layout
@@ -131,7 +163,13 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
               {task.dueDate && (
                 <div className="flex items-center gap-1">
                   <Calendar size={12} />
-                  <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                  <span className={`${
+                    new Date(task.dueDate) < new Date() && !task.completed 
+                      ? 'text-red-500 font-medium' 
+                      : ''
+                  }`}>
+                    {new Date(task.dueDate).toLocaleDateString()}
+                  </span>
                 </div>
               )}
             </div>
@@ -234,6 +272,26 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
             <Filter size={16} />
             Filters
           </motion.button>
+
+          {/* Sort Controls */}
+          <div className="flex items-center gap-1">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="text-xs bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1"
+            >
+              <option value="dueDate">Due Date</option>
+              <option value="priority">Priority</option>
+              <option value="created">Created</option>
+              <option value="title">Title</option>
+            </select>
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            >
+              {sortOrder === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />}
+            </button>
+          </div>
 
           <button
             onClick={() => setShowCompleted(!showCompleted)}
@@ -407,6 +465,29 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
           </div>
         )}
       </div>
+        {filteredAndSortedTasks.length === 0 && (
+          <div className="text-center py-12">
+            <div className="flex justify-center mb-4">
+              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
+                <Filter size={24} className="text-gray-400" />
+              </div>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No tasks found</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              {searchTerm || selectedCategory !== "all" || selectedPriority !== "all"
+                ? "Try adjusting your filters or search terms"
+                : "Create your first task to get started"}
+            </p>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onNewTask}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Create Task
+            </motion.button>
+          </div>
+        )}
     </div>
   );
 };

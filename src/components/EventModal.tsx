@@ -33,7 +33,9 @@ export const EventModal: React.FC<EventModalProps> = ({
     location: '',
     attendees: '',
     isRecurring: false,
-    recurringPattern: 'weekly' as 'daily' | 'weekly' | 'monthly',
+    recurringPattern: 'weekly' as 'daily' | 'weekly' | 'monthly' | 'yearly',
+    recurringEndDate: '',
+    recurringCount: 0,
     reminderEnabled: true,
     reminderMinutes: 15,
     meetingLink: ''
@@ -52,6 +54,8 @@ export const EventModal: React.FC<EventModalProps> = ({
         attendees: '',
         isRecurring: false,
         recurringPattern: 'weekly',
+        recurringEndDate: '',
+        recurringCount: 0,
         reminderEnabled: true,
         reminderMinutes: 15,
         meetingLink: ''
@@ -72,6 +76,8 @@ export const EventModal: React.FC<EventModalProps> = ({
         attendees: '',
         isRecurring: false,
         recurringPattern: 'weekly',
+        recurringEndDate: '',
+        recurringCount: 0,
         reminderEnabled: true,
         reminderMinutes: 15,
         meetingLink: ''
@@ -79,10 +85,91 @@ export const EventModal: React.FC<EventModalProps> = ({
     }
   }, [event, selectedDate]);
 
+  const processNaturalLanguage = (input: string) => {
+    const lowerInput = input.toLowerCase();
+    
+    // Extract time patterns
+    const timeRegex = /(\d{1,2}):?(\d{2})?\s*(am|pm)?/gi;
+    const dateRegex = /(tomorrow|today|next\s+\w+|monday|tuesday|wednesday|thursday|friday|saturday|sunday)/gi;
+    
+    let updatedFormData = { ...formData };
+    
+    // Extract time
+    const timeMatch = timeRegex.exec(input);
+    if (timeMatch) {
+      let hour = parseInt(timeMatch[1]);
+      const minute = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+      const ampm = timeMatch[3];
+      
+      if (ampm === 'pm' && hour !== 12) hour += 12;
+      if (ampm === 'am' && hour === 12) hour = 0;
+      
+      const startDate = new Date(formData.start || new Date());
+      startDate.setHours(hour, minute, 0, 0);
+      const endDate = new Date(startDate);
+      endDate.setHours(hour + 1, minute, 0, 0);
+      
+      updatedFormData.start = format(startDate, "yyyy-MM-dd'T'HH:mm");
+      updatedFormData.end = format(endDate, "yyyy-MM-dd'T'HH:mm");
+    }
+    
+    // Extract date
+    const dateMatch = dateRegex.exec(input);
+    if (dateMatch) {
+      const dateStr = dateMatch[0].toLowerCase();
+      let targetDate = new Date();
+      
+      if (dateStr === 'tomorrow') {
+        targetDate.setDate(targetDate.getDate() + 1);
+      } else if (dateStr === 'today') {
+        // Keep current date
+      } else {
+        // Handle day names
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const targetDay = days.indexOf(dateStr);
+        if (targetDay !== -1) {
+          const currentDay = targetDate.getDay();
+          const daysUntilTarget = (targetDay + 7 - currentDay) % 7;
+          targetDate.setDate(targetDate.getDate() + (daysUntilTarget === 0 ? 7 : daysUntilTarget));
+        }
+      }
+      
+      const currentTime = formData.start ? new Date(formData.start) : new Date();
+      targetDate.setHours(currentTime.getHours(), currentTime.getMinutes(), 0, 0);
+      const endDate = new Date(targetDate);
+      endDate.setHours(targetDate.getHours() + 1);
+      
+      updatedFormData.start = format(targetDate, "yyyy-MM-dd'T'HH:mm");
+      updatedFormData.end = format(endDate, "yyyy-MM-dd'T'HH:mm");
+    }
+    
+    // Clean title
+    const cleanTitle = input
+      .replace(timeRegex, '')
+      .replace(dateRegex, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    if (cleanTitle) {
+      updatedFormData.title = cleanTitle;
+    }
+    
+    setFormData(updatedFormData);
+  };
+
+  const handleTitleChange = (value: string) => {
+    setFormData(prev => ({ ...prev, title: value }));
+    
+    // Trigger NLP processing if input looks like natural language
+    if (value.length > 5 && (value.includes(' ') && (value.match(/\d/) || value.includes('tomorrow') || value.includes('today')))) {
+      processNaturalLanguage(value);
+    }
+  };
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const category = categories.find(c => c.id === formData.categoryId) || categories[0];
-    const eventData: Omit<CalendarEvent, 'id'> = {
+    
+    let eventData: Omit<CalendarEvent, 'id'> = {
       title: formData.title,
       description: formData.description,
       start: new Date(formData.start),
@@ -90,10 +177,61 @@ export const EventModal: React.FC<EventModalProps> = ({
       category,
       allDay: formData.allDay
     };
-    onSave(eventData);
+    
+    // Handle recurring events
+    if (formData.isRecurring) {
+      const events = generateRecurringEvents(eventData, formData.recurringPattern, formData.recurringEndDate, formData.recurringCount);
+      events.forEach(event => onSave(event));
+    } else {
+      onSave(eventData);
+    }
     onClose();
   };
 
+  const generateRecurringEvents = (
+    baseEvent: Omit<CalendarEvent, 'id'>, 
+    pattern: string, 
+    endDate: string, 
+    count: number
+  ): Array<Omit<CalendarEvent, 'id'>> => {
+    const events: Array<Omit<CalendarEvent, 'id'>> = [baseEvent];
+    const startDate = new Date(baseEvent.start);
+    const duration = baseEvent.end.getTime() - baseEvent.start.getTime();
+    
+    const maxEvents = count > 0 ? count : 52; // Default to 1 year
+    const endDateTime = endDate ? new Date(endDate) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+    
+    for (let i = 1; i < maxEvents; i++) {
+      const nextStart = new Date(startDate);
+      
+      switch (pattern) {
+        case 'daily':
+          nextStart.setDate(startDate.getDate() + i);
+          break;
+        case 'weekly':
+          nextStart.setDate(startDate.getDate() + (i * 7));
+          break;
+        case 'monthly':
+          nextStart.setMonth(startDate.getMonth() + i);
+          break;
+        case 'yearly':
+          nextStart.setFullYear(startDate.getFullYear() + i);
+          break;
+      }
+      
+      if (nextStart > endDateTime) break;
+      
+      const nextEnd = new Date(nextStart.getTime() + duration);
+      
+      events.push({
+        ...baseEvent,
+        start: nextStart,
+        end: nextEnd
+      });
+    }
+    
+    return events;
+  };
   const handleDelete = () => {
     if (event && onDelete && confirm('Are you sure you want to delete this event?')) {
       onDelete(event.id);
@@ -166,11 +304,14 @@ export const EventModal: React.FC<EventModalProps> = ({
                 <input
                   type="text"
                   value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g., Team Meeting, Doctor Appointment, Birthday Party"
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="e.g., 'Meeting tomorrow 3pm' or 'Lunch with John Friday 12:30'"
                   className="w-full px-4 py-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   required
                 />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  💡 Try natural language like "Meeting tomorrow 3pm" or "Lunch Friday 12:30"
+                </p>
               </div>
 
               {/* Description */}
@@ -350,13 +491,37 @@ export const EventModal: React.FC<EventModalProps> = ({
                   <div>
                     <select
                       value={formData.recurringPattern}
-                      onChange={(e) => setFormData(prev => ({ ...prev, recurringPattern: e.target.value as 'daily' | 'weekly' | 'monthly' }))}
+                      onChange={(e) => setFormData(prev => ({ ...prev, recurringPattern: e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly' }))}
                       className="w-full px-3 py-2 text-sm rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
                     >
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
                       <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
                     </select>
+                    
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">End Date</label>
+                        <input
+                          type="date"
+                          value={formData.recurringEndDate}
+                          onChange={(e) => setFormData(prev => ({ ...prev, recurringEndDate: e.target.value }))}
+                          className="w-full px-2 py-1 text-xs rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Max Count</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="365"
+                          value={formData.recurringCount}
+                          onChange={(e) => setFormData(prev => ({ ...prev, recurringCount: parseInt(e.target.value) || 0 }))}
+                          className="w-full px-2 py-1 text-xs rounded bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 

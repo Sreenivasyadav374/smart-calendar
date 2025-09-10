@@ -12,6 +12,8 @@ interface Notification {
   priority: 'low' | 'medium' | 'high';
   actionable?: boolean;
   relatedId?: string;
+  dismissed?: boolean;
+  snoozedUntil?: Date;
 }
 
 interface NotificationSystemProps {
@@ -30,6 +32,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission>('default');
 
   useEffect(() => {
     checkForNotifications();
@@ -37,22 +40,55 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
     return () => clearInterval(interval);
   }, [tasks, events]);
 
+  useEffect(() => {
+    // Check notification permission on mount
+    if ('Notification' in window) {
+      setPermission(Notification.permission);
+    }
+  }, []);
   const checkForNotifications = () => {
     const now = new Date();
     const newNotifications: Notification[] = [];
 
-    // Check for upcoming events (15 minutes before)
+    // Check for upcoming events (multiple time intervals)
     events.forEach(event => {
       const eventStart = new Date(event.start);
       const timeDiff = eventStart.getTime() - now.getTime();
       const minutesUntil = Math.floor(timeDiff / (1000 * 60));
 
-      if (minutesUntil === 15 && minutesUntil > 0) {
+      // Multiple reminder intervals
+      const reminderIntervals = [60, 30, 15, 5]; // 1 hour, 30 min, 15 min, 5 min
+      
+      if (reminderIntervals.includes(minutesUntil) && minutesUntil > 0) {
+        const existingNotification = notifications.find(n => 
+          n.relatedId === event.id && n.type === 'event' && !n.dismissed
+        );
+        
+        if (!existingNotification) {
+          const timeText = minutesUntil >= 60 ? 
+            `${Math.floor(minutesUntil / 60)} hour${Math.floor(minutesUntil / 60) > 1 ? 's' : ''}` :
+            `${minutesUntil} minute${minutesUntil > 1 ? 's' : ''}`;
+            
+          newNotifications.push({
+            id: `event-${event.id}-${minutesUntil}min`,
+            type: 'event',
+            title: 'Upcoming Event',
+            message: `"${event.title}" starts in ${timeText}`,
+            timestamp: now,
+            priority: minutesUntil <= 15 ? 'high' : 'medium',
+            actionable: true,
+            relatedId: event.id
+          });
+        }
+      }
+      
+      // Event starting now
+      if (minutesUntil === 0) {
         newNotifications.push({
-          id: `event-${event.id}-15min`,
+          id: `event-${event.id}-now`,
           type: 'event',
-          title: 'Upcoming Event',
-          message: `"${event.title}" starts in 15 minutes`,
+          title: 'Event Starting Now',
+          message: `"${event.title}" is starting now`,
           timestamp: now,
           priority: 'high',
           actionable: true,
@@ -67,6 +103,11 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
         const dueDate = new Date(task.dueDate);
         if (dueDate < now) {
           const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          const existingNotification = notifications.find(n => 
+            n.id === `task-overdue-${task.id}` && !n.dismissed
+          );
+          
+          if (!existingNotification) {
           newNotifications.push({
             id: `task-overdue-${task.id}`,
             type: 'task',
@@ -113,6 +154,11 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
     });
 
     if (completedToday.length >= 5) {
+          const existingNotification = notifications.find(n => 
+            n.id === `task-due-today-${task.id}` && !n.dismissed
+          );
+          
+          if (!existingNotification) {
       newNotifications.push({
         id: `productivity-${now.getTime()}`,
         type: 'info',
@@ -123,6 +169,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
       });
     }
 
+          }
     // Filter out existing notifications
     const existingIds = notifications.map(n => n.id);
     const uniqueNewNotifications = newNotifications.filter(n => !existingIds.includes(n.id));
@@ -135,36 +182,59 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
       if ('Notification' in window && Notification.permission === 'granted') {
         uniqueNewNotifications.forEach(notification => {
           if (notification.priority === 'high') {
+      const existingInsight = notifications.find(n => 
+        n.type === 'info' && n.title === 'Great Progress!' && !n.dismissed
+      );
+      // Send browser notifications for high priority items
+      if (permission === 'granted') {
             new Notification(notification.title, {
               body: notification.message,
-              icon: '/icon-192.png',
+            const browserNotification = new Notification(notification.title, {
               tag: notification.id
             });
+              tag: notification.id,
+              requireInteraction: true,
+              actions: notification.actionable ? [
+                { action: 'view', title: 'View' },
+                { action: 'dismiss', title: 'Dismiss' }
+              ] : []
           }
+            
+            browserNotification.onclick = () => {
+              handleNotificationClick(notification);
+              browserNotification.close();
+            };
         });
+      }
       }
     }
   };
 
   const requestNotificationPermission = async () => {
     if ('Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission();
+      const result = await Notification.requestPermission();
+      setPermission(result);
     }
   };
 
-  useEffect(() => {
-    requestNotificationPermission();
-  }, []);
 
   const dismissNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications(prev => prev.map(n => 
+      n.id === id ? { ...n, dismissed: true } : n
+    ));
+  };
+  
+  const snoozeNotification = (id: string, minutes: number) => {
+    const snoozeUntil = new Date(Date.now() + minutes * 60 * 1000);
+    setNotifications(prev => prev.map(n => 
+      n.id === id ? { ...n, snoozedUntil: snoozeUntil } : n
+    ));
   };
 
   const handleNotificationClick = (notification: Notification) => {
     if (notification.actionable && notification.relatedId) {
       if (notification.type === 'task' && onTaskComplete) {
-        // For overdue or due tasks, we might want to open the task instead of completing it
-        // onTaskComplete(notification.relatedId);
+        // Could open task modal instead of auto-completing
       } else if (notification.type === 'event' && onEventClick) {
         onEventClick(notification.relatedId);
       }
@@ -173,10 +243,16 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
   };
 
   const clearAllNotifications = () => {
-    setNotifications([]);
+    setNotifications(prev => prev.map(n => ({ ...n, dismissed: true })));
     setHasUnread(false);
   };
 
+  // Filter out dismissed and snoozed notifications for display
+  const visibleNotifications = notifications.filter(n => {
+    if (n.dismissed) return false;
+    if (n.snoozedUntil && new Date() < n.snoozedUntil) return false;
+    return true;
+  });
   const getNotificationIcon = (type: string, priority: string) => {
     switch (type) {
       case 'task':
@@ -217,7 +293,7 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
             animate={{ scale: 1 }}
             className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium"
           >
-            {notifications.length > 9 ? '9+' : notifications.length}
+            {visibleNotifications.length > 9 ? '9+' : visibleNotifications.length}
           </motion.div>
         )}
       </motion.button>
@@ -235,7 +311,26 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100">Notifications</h3>
-                {notifications.length > 0 && (
+                <div className="flex items-center gap-2">
+                  {permission !== 'granted' && (
+                    <button
+                      onClick={requestNotificationPermission}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                    >
+                      Enable Push
+                    </button>
+                  )}
+                  {visibleNotifications.length > 0 && (
+                    <button
+                      onClick={clearAllNotifications}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                    >
+                      Clear All
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
                   <button
                     onClick={clearAllNotifications}
                     className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
@@ -246,6 +341,80 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
               </div>
             </div>
 
+            {/* Notifications List */}
+            <div className="max-h-80 overflow-y-auto">
+              {visibleNotifications.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Bell size={32} className="mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">No notifications</p>
+                  <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">You're all caught up!</p>
+                </div>
+              ) : (
+                <div className="p-2">
+                  {visibleNotifications.map((notification) => (
+                    <motion.div
+                      key={notification.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
+                      className={`p-3 mb-2 rounded-xl border-l-4 ${getPriorityColor(notification.priority)} cursor-pointer hover:shadow-md transition-all group`}
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          {getNotificationIcon(notification.type, notification.priority)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                              {notification.title}
+                            </h4>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {notification.actionable && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    snoozeNotification(notification.id, 15);
+                                  }}
+                                  className="text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 px-1"
+                                  title="Snooze 15 min"
+                                >
+                                  💤
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  dismissNotification(notification.id);
+                                }}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
+                            {notification.timestamp.toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
             {/* Notifications List */}
             <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (

@@ -29,6 +29,10 @@ export interface CalendarEvent {
   isGoogleEvent?: boolean;
   googleEventId?: string;
   allDay?: boolean;
+  location?: string;
+  attendees?: string[];
+  recurringEventId?: string;
+  isRecurring?: boolean;
   userId: string;
 }
 
@@ -39,6 +43,14 @@ export interface TaskCategory {
   icon: string;
 }
 
+export interface RecurringPattern {
+  type: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom';
+  interval: number;
+  endDate?: Date;
+  count?: number;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+}
 export interface AITaskSuggestion {
   title: string;
   description: string;
@@ -46,6 +58,8 @@ export interface AITaskSuggestion {
   priority: 'low' | 'medium' | 'high';
   estimatedDuration: number;
   reasoning: string;
+  suggestedTime?: Date;
+  confidence?: number;
 }
 
 export interface AppState {
