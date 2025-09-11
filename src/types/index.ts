@@ -1,3 +1,11 @@
+export interface Notification {
+  id: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+  title: string;
+  message: string;
+  duration?: number;
+}
+
 export interface User {
   id: string;
   email: string;

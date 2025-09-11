@@ -4,22 +4,25 @@ import { Task, CalendarEvent, TaskCategory } from '../types';
 import { DEFAULT_CATEGORIES } from '../utils/constants';
 import { authManager } from '../utils/auth'; 
 
-export const useIndexedDB = () => {
+export const useIndexedDB = (user: User | null) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [categories, setCategories] = useState<TaskCategory[]>(DEFAULT_CATEGORIES);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user) {
+      loadData();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const loadData = async () => {
   try {
     setLoading(true);
     await dbManager.init();
 
-    const user = authManager.getCurrentUser();
     if (!user) throw new Error('User not authenticated');
 
     const [loadedTasks, loadedEvents, loadedCategories] = await Promise.all([

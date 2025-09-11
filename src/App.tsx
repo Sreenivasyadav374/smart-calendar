@@ -14,15 +14,17 @@ import { useTheme } from "./hooks/useTheme";
 import { authManager } from "./utils/auth";
 import { googleCalendarAPI } from "./utils/googleCalendar";
 import { openaiService } from "./utils/openai";
-import { Task, CalendarEvent, User, AITaskSuggestion } from "./types";
+import { Task, CalendarEvent, User, AITaskSuggestion, Notification } from "./types";
 import { format } from "date-fns";
 import { useTasksApi } from "./hooks/useTasksApi";
 import { useEventsApi } from "./hooks/useEventsApi";
 import { useCategoriesApi } from "./hooks/useCategoriesApi";
 import { BarChart3 } from "lucide-react";
+import { v4 as uuidv4 } from "uuid";
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -36,7 +38,7 @@ function App() {
 
   const { theme, toggleTheme } = useTheme();
   const isOnline = useOnlineStatus();
-  const { clearAllData } = useIndexedDB();
+  const { clearAllData } = useIndexedDB(user);
 
   const { tasks, loading: tasksLoading, saveTask, deleteTask } = useTasksApi();
   const { events, loading: eventsLoading, saveEvent, deleteEvent } = useEventsApi();
@@ -62,6 +64,17 @@ function App() {
     }
   }, [user, isOnline]);
 
+  const addNotification = (notification: Omit<Notification, 'id'>) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: uuidv4(),
+    };
+    setNotifications(prev => [...prev, newNotification]);
+  };
+
+  const removeNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
   const shouldSync = (): boolean => {
     if (!lastSyncTime) return true;
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -389,13 +402,8 @@ function App() {
       {/* Notification System */}
       <div className="fixed top-4 right-4 z-50">
         <NotificationSystem
-          tasks={tasks}
-          events={events}
-          onTaskComplete={handleTaskComplete}
-          onEventClick={(eventId) => {
-            const event = events.find(e => e.id === eventId);
-            if (event) openEventModal(event);
-          }}
+          notifications={notifications}
+          onRemove={removeNotification}
         />
       </div>
 

@@ -441,30 +441,6 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
           </div>
         )}
 
-        {filteredTasks.length === 0 && (
-          <div className="text-center py-12">
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-                <Filter size={24} className="text-gray-400" />
-              </div>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">No tasks found</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              {searchTerm || selectedCategory !== "all" || selectedPriority !== "all"
-                ? "Try adjusting your filters or search terms"
-                : "Create your first task to get started"}
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onNewTask}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Create Task
-            </motion.button>
-          </div>
-        )}
-      </div>
         {filteredAndSortedTasks.length === 0 && (
           <div className="text-center py-12">
             <div className="flex justify-center mb-4">
@@ -488,6 +464,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
             </motion.button>
           </div>
         )}
+      </div>
     </div>
   );
 };
