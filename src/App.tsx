@@ -20,7 +20,7 @@ import { useTasksApi } from "./hooks/useTasksApi";
 import { useEventsApi } from "./hooks/useEventsApi";
 import { useCategoriesApi } from "./hooks/useCategoriesApi";
 import { BarChart3 } from "lucide-react";
-import { v4 as uuidv4 } from "uuid";
+
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
