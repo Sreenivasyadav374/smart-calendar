@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { dbManager } from '../utils/indexedDB';
-import { Task, CalendarEvent, TaskCategory } from '../types';
+import { Task, CalendarEvent, TaskCategory, User } from '../types';
 import { DEFAULT_CATEGORIES } from '../utils/constants';
 import { authManager } from '../utils/auth'; 
 
