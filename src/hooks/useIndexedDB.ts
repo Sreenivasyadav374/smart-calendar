@@ -4,7 +4,7 @@ import { Task, CalendarEvent, TaskCategory } from '../types';
 import { DEFAULT_CATEGORIES } from '../utils/constants';
 import { authManager } from '../utils/auth'; 
 
-export const useIndexedDB = (user: User | null) => {
+export const useIndexedDB = (user:any) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [categories, setCategories] = useState<TaskCategory[]>(DEFAULT_CATEGORIES);
