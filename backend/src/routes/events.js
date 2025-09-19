@@ -7,8 +7,19 @@ const router = Router();
 router.get("/", async (_req, res) => {
   try {
     const events = await CalendarEvent.find();
-    res.json(events);
+    
+    // Ensure all events have proper ID mapping
+    const eventsWithId = events.map(event => {
+      const eventObject = event.toObject();
+      return {
+        ...eventObject,
+        id: eventObject.id || eventObject._id.toString(),
+      };
+    });
+    
+    res.json(eventsWithId);
   } catch (err) {
+    console.error("Fetch events failed:", err);
     res.status(500).json({ error: "Failed to fetch events" });
   }
 });
@@ -19,10 +30,11 @@ router.post("/", async (req, res) => {
     const event = new CalendarEvent(req.body);
     const saved = await event.save();
 
-    // Always return plain object with id
+    // Convert MongoDB document to plain object and ensure proper ID mapping
+    const savedObject = saved.toObject();
     res.status(201).json({
-      id: saved._id,       // use MongoDB _id
-      ...saved.toObject(),
+      ...savedObject,
+      id: savedObject.id || savedObject._id.toString(), // Ensure id field exists
     });
   } catch (err) {
     console.error("Create event failed:", err);
@@ -38,8 +50,19 @@ router.put("/:id", async (req, res) => {
       req.body,
       { new: true }
     );
-    res.json(updated);
+    
+    if (!updated) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+    
+    // Convert to plain object and ensure proper ID mapping
+    const updatedObject = updated.toObject();
+    res.json({
+      ...updatedObject,
+      id: updatedObject.id || updatedObject._id.toString(),
+    });
   } catch (err) {
+    console.error("Update event failed:", err);
     res.status(400).json({ error: "Failed to update event" });
   }
 });
