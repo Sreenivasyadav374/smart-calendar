@@ -26,8 +26,7 @@ export function useEventsApi() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function saveEvent(event: CalendarEvent) {
-    const isUpdate = !!event.id;
+  async function saveEvent(event: CalendarEvent, isUpdate: boolean = false) {
     const method = isUpdate ? "PUT" : "POST";
     const url = isUpdate ? `${API_URL}/${event.id}` : API_URL;
 
@@ -35,7 +34,7 @@ export function useEventsApi() {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(event),
+        body: JSON.stringify(isUpdate ? event : { ...event, id: undefined }),
       });
 
       if (!res.ok) {

@@ -148,20 +148,22 @@ function App() {
   const handleEventSave = async (eventData: Omit<CalendarEvent, "id" | "userId">) => {
     if (!user) return;
 
+    const isUpdate = !!selectedEvent?.id;
+    
     const event: CalendarEvent = {
       ...eventData,
-      id: selectedEvent?.id || uuidv4(),
+      id: isUpdate ? selectedEvent.id : uuidv4(),
       userId: user.id,
     };
 
-    await saveEvent(event);
+    await saveEvent(event, isUpdate);
 
     // Sync with Google Calendar if online and not a Google event
     if (user && isOnline && !event.isGoogleEvent) {
       try {
         const googleEvent = await googleCalendarAPI.createEvent(eventData);
         console.log("Created Google Calendar event:", googleEvent);
-        await saveEvent({ ...googleEvent, userId: user.id });
+        await saveEvent({ ...googleEvent, userId: user.id }, false);
 
       } catch (error) {
         console.error("Failed to sync event with Google Calendar:", error);
@@ -201,7 +203,7 @@ function App() {
 
   const handleEventDrop = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
     const updatedEvent = { ...event, start: newStart, end: newEnd };
-    await saveEvent(updatedEvent);
+    await saveEvent(updatedEvent, true);
 
     // Sync with Google Calendar if it's a Google event
     if (event.isGoogleEvent && event.googleEventId && user && isOnline) {
@@ -210,7 +212,7 @@ function App() {
       } catch (error) {
         console.error("Failed to update Google Calendar event:", error);
         // Revert the change if Google sync fails
-        await saveEvent(event);
+        await saveEvent(event, true);
       }
     }
   };
