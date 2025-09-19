@@ -17,26 +17,27 @@ export function useTasksApi() {
   }, []);
 
   // Save (create or update) task
-  async function saveTask(task: Task) {
-    const isUpdate = !!task.id;
-    const method = isUpdate ? "PUT" : "POST";
-    const url = isUpdate ? `${API_URL}/${task.id}` : API_URL;
+  async function saveTask(task: Task, isNew: boolean) {
+  const method = isNew ? "POST" : "PUT";
+  const url = isNew ? API_URL : `${API_URL}/${task.id}`;
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(task),
-    });
+  const res = await fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(task),
+  });
 
-    if (!res.ok) {
-      throw new Error("Failed to save task");
-    }
-
-    const saved: Task = await res.json();
-    setTasks(prev =>
-      isUpdate ? prev.map(t => (t.id === saved.id ? saved : t)) : [...prev, saved]
-    );
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Failed to save task: ${errorText}`);
   }
+
+  const saved: Task = await res.json();
+  setTasks(prev =>
+    isNew ? [...prev, saved] : prev.map(t => (t.id === saved.id ? saved : t))
+  );
+}
+
 
   // Delete task
   async function deleteTask(id: string) {

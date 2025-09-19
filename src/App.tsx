@@ -129,14 +129,18 @@ function App() {
   const handleTaskSave = async (taskData: Omit<Task, "id" | "createdAt" | "userId">) => {
     if (!user) return;
 
+    const isNew = !selectedTask;
+    const defaultCategory = categories[0] || { id: "social", name: "Social" };
+
     const task: Task = {
       ...taskData,
-      id: selectedTask?.id || uuidv4(),
-      createdAt: selectedTask?.createdAt || new Date(),
+      id: isNew ? uuidv4() : selectedTask.id,
+      createdAt: isNew ? new Date() : selectedTask.createdAt,
+      category: taskData.category || defaultCategory, // <-- always send a category
       userId: user.id,
     };
 
-    await saveTask(task);
+    await saveTask(task, isNew);
     setSelectedTask(null);
     setIsTaskModalOpen(false);
   };
@@ -156,7 +160,9 @@ function App() {
     if (user && isOnline && !event.isGoogleEvent) {
       try {
         const googleEvent = await googleCalendarAPI.createEvent(eventData);
+        console.log("Created Google Calendar event:", googleEvent);
         await saveEvent({ ...googleEvent, userId: user.id });
+
       } catch (error) {
         console.error("Failed to sync event with Google Calendar:", error);
       }
@@ -169,7 +175,7 @@ function App() {
   const handleTaskComplete = async (taskId: string) => {
     const task = tasks.find((t) => t.id === taskId);
     if (task) {
-      await saveTask({ ...task, completed: !task.completed });
+      await saveTask({ ...task, completed: !task.completed },false);
     }
   };
 
@@ -190,7 +196,7 @@ function App() {
     };
 
     await saveEvent(event);
-    await saveTask({ ...task, scheduledDate, userId: user.id });
+    await saveTask({ ...task, scheduledDate, userId: user.id },false);
   };
 
   const handleEventDrop = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
@@ -259,7 +265,7 @@ function App() {
       userId: user.id,
     };
 
-    await saveTask(task);
+    await saveTask(task,true);
     setAiSuggestions((prev) => prev.filter((s) => s !== suggestion));
   };
 

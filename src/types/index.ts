@@ -47,8 +47,6 @@ export interface CalendarEvent {
 export interface TaskCategory {
   id: string;
   name: string;
-  color: string;
-  icon: string;
 }
 
 export interface RecurringPattern {

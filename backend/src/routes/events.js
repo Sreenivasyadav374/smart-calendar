@@ -17,10 +17,16 @@ router.get("/", async (_req, res) => {
 router.post("/", async (req, res) => {
   try {
     const event = new CalendarEvent(req.body);
-    await event.save();
-    res.status(201).json(event);
+    const saved = await event.save();
+
+    // Always return plain object with id
+    res.status(201).json({
+      id: saved._id,       // use MongoDB _id
+      ...saved.toObject(),
+    });
   } catch (err) {
-    res.status(400).json({ error: "Failed to create event" });
+    console.error("Create event failed:", err);
+    res.status(400).json({ error: err.message });
   }
 });
 

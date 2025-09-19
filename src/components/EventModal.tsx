@@ -476,8 +476,9 @@ export const EventModal: React.FC<EventModalProps> = ({
                     <Repeat size={16} className="text-gray-500" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">Recurring Event</span>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className="relative inline-flex items-center cursor-pointer" >
                     <input
+                    placeholder='Recurring event?'
                       type="checkbox"
                       checked={formData.isRecurring}
                       onChange={(e) => setFormData(prev => ({ ...prev, isRecurring: e.target.checked }))}
