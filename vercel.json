@@ -5,20 +5,13 @@
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "dist"
+        "distDir": "build"
       }
     }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/static/(.*)", "dest": "/static/$1" },
-    { "src": "/favicon.ico", "dest": "/favicon.ico" },
-    { "src": "/manifest.json", "dest": "/manifest.json" },
-    { "src": "/(.*\\.js)", "dest": "/$1" },
-    { "src": "/(.*\\.css)", "dest": "/$1" },
-    { "src": "/(.*\\.png)", "dest": "/$1" },
-    { "src": "/(.*\\.jpg)", "dest": "/$1" },
-    { "src": "/(.*\\.svg)", "dest": "/$1" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "handle": "filesystem" },
+    { "src": "/.*", "dest": "/index.html" }
   ]
 }
