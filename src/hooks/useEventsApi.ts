@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { CalendarEvent } from "../types";
 
-const API_URL = "http://localhost:5000/api/events";
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? "/api/events" 
+  : "http://localhost:5000/api/events";
 
 export function useEventsApi() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);

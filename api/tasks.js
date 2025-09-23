@@ -1,0 +1,75 @@
+import { MongoClient } from 'mongodb';
+
+let cachedClient = null;
+let cachedDb = null;
+
+async function connectToDatabase() {
+  if (cachedClient && cachedDb) {
+    return { client: cachedClient, db: cachedDb };
+  }
+
+  const client = new MongoClient(process.env.MONGODB_URI);
+  await client.connect();
+  const db = client.db('smart-calendar');
+
+  cachedClient = client;
+  cachedDb = db;
+
+  return { client, db };
+}
+
+export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  try {
+    const { db } = await connectToDatabase();
+    const collection = db.collection('tasks');
+
+    switch (req.method) {
+      case 'GET':
+        const tasks = await collection.find({}).toArray();
+        res.status(200).json(tasks);
+        break;
+
+      case 'POST':
+        const newTask = req.body;
+        const insertResult = await collection.insertOne(newTask);
+        const createdTask = await collection.findOne({ _id: insertResult.insertedId });
+        res.status(201).json(createdTask);
+        break;
+
+      case 'PUT':
+        const taskId = req.query.id || req.url.split('/').pop();
+        const updateData = req.body;
+        await collection.findOneAndUpdate(
+          { id: taskId },
+          { $set: updateData },
+          { returnDocument: 'after' }
+        );
+        const updatedTask = await collection.findOne({ id: taskId });
+        res.status(200).json(updatedTask);
+        break;
+
+      case 'DELETE':
+        const deleteId = req.query.id || req.url.split('/').pop();
+        await collection.deleteOne({ id: deleteId });
+        res.status(204).end();
+        break;
+
+      default:
+        res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
+        res.status(405).end(`Method ${req.method} Not Allowed`);
+    }
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}

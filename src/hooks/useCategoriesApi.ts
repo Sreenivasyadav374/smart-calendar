@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { TaskCategory } from "../types"; // <-- Correct type name
 
-const API_URL = "http://localhost:5000/api/categories";
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? "/api/categories" 
+  : "http://localhost:5000/api/categories";
 
 export function useCategoriesApi() {
   const [categories, setCategories] = useState<TaskCategory[]>([]);

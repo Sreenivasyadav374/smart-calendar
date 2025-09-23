@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Task } from "../types"; // adjust to your actual types location
 
-const API_URL = "http://localhost:5000/api/tasks";
+const API_URL = process.env.NODE_ENV === 'production' 
+  ? "/api/tasks" 
+  : "http://localhost:5000/api/tasks";
 
 export function useTasksApi() {
   const [tasks, setTasks] = useState<Task[]>([]);

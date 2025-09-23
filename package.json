@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "vercel-build": "npm run build"
   },
   "dependencies": {
     "@fullcalendar/daygrid": "^6.1.18",
@@ -20,6 +21,7 @@
     "framer-motion": "^12.23.11",
     "idb": "^8.0.3",
     "lucide-react": "^0.344.0",
+    "mongodb": "^6.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "uuid": "^11.1.0"
