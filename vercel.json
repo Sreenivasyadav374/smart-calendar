@@ -19,11 +19,6 @@
       "dest": "/index.html"
     }
   ],
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs18.x"
-    }
-  },
   "env": {
     "MONGODB_URI": "@mongodb_uri",
     "NODE_ENV": "production"
