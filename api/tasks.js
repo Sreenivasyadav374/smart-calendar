@@ -23,6 +23,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+const taskId = parsedUrl.searchParams.get("id") || req.url.split("/").pop();
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -39,24 +41,21 @@ export default async function handler(req, res) {
         res.status(200).json(tasks);
         break;
 
-      case 'POST':
-        const newTask = req.body;
-        const insertResult = await collection.insertOne(newTask);
-        const createdTask = await collection.findOne({ _id: insertResult.insertedId });
-        res.status(201).json(createdTask);
-        break;
+      // Add same parseBody(req) helper as above
 
-      case 'PUT':
-        const taskId = req.query.id || req.url.split('/').pop();
-        const updateData = req.body;
-        await collection.findOneAndUpdate(
-          { id: taskId },
-          { $set: updateData },
-          { returnDocument: 'after' }
-        );
-        const updatedTask = await collection.findOne({ id: taskId });
-        res.status(200).json(updatedTask);
-        break;
+
+
+case "POST":
+  const newTask = await parseBody(req);  // ✅
+
+case "PUT":
+  const updateData = await parseBody(req);  // ✅
+  const updateResult = await collection.findOneAndUpdate(
+    { id: taskId },
+    { $set: updateData },
+    { returnDocument: "after" }
+  );
+
 
       case 'DELETE':
         const deleteId = req.query.id || req.url.split('/').pop();

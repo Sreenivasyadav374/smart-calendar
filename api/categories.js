@@ -23,6 +23,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
+const categoryId = parsedUrl.searchParams.get("id") || req.url.split("/").pop();
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -39,23 +41,21 @@ export default async function handler(req, res) {
         res.status(200).json(categories);
         break;
 
-      case 'POST':
-        const newCategory = req.body;
-        const insertResult = await collection.insertOne(newCategory);
-        const createdCategory = await collection.findOne({ _id: insertResult.insertedId });
-        res.status(201).json(createdCategory);
-        break;
+      // Add same parseBody(req) helper as above
 
-      case 'PUT':
-        const categoryId = req.query.id || req.url.split('/').pop();
-        const updateData = req.body;
-        const updateResult = await collection.findOneAndUpdate(
-          { id: categoryId },
-          { $set: updateData },
-          { returnDocument: 'after' }
-        );
-        res.status(200).json(updateResult.value);
-        break;
+
+
+case "POST":
+  const newCategory = await parseBody(req);  // ✅
+
+case "PUT":
+  const updateData = await parseBody(req);  // ✅
+  const updateResult = await collection.findOneAndUpdate(
+    { id: categoryId },
+    { $set: updateData },
+    { returnDocument: "after" }
+  );
+
 
       case 'DELETE':
         const deleteId = req.query.id || req.url.split('/').pop();
