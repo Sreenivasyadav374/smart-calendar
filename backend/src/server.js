@@ -52,4 +52,4 @@ const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/smart-
 // For now, let's keep it simple by making the app exportable:
 
 // Simple export for Vercel
-module.exports = app;
+export default app;
