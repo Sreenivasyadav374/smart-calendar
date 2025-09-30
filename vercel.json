@@ -17,6 +17,10 @@
       "dest": "backend/src/server.js" 
     },
     { 
+      "src": "/([^/]+\\.[a-z]+)$",
+      "dest": "/dist/$1"
+    },
+    { 
       "src": "/assets/(.*)", 
       "dest": "/dist/assets/$1" 
     },
