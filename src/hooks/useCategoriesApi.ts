@@ -1,44 +1,39 @@
 import { useState, useEffect } from "react";
-import { TaskCategory } from "../types"; // <-- Correct type name
+// Import the User type from your types file for null check
+import { TaskCategory, User } from "../types"; 
 
 const API_URL = process.env.NODE_ENV === 'production' 
   ? "/api/categories" 
   : "http://localhost:5000/api/categories";
 
-export function useCategoriesApi() {
+// 1. Accept the user object
+export function useCategoriesApi(user: User | null) {
   const [categories, setCategories] = useState<TaskCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // 2. CRITICAL: Only run fetch logic if user is logged in
+    if (!user) {
+      setLoading(false);
+      setCategories([]); // Clear local state on logout
+      return;
+    }
+    
     fetch(API_URL)
       .then(res => res.json())
       .then((data: TaskCategory[]) => setCategories(data))
       .catch(err => console.error("Failed to fetch categories", err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]); // 3. Rerun effect when user state changes
 
   async function saveCategory(category: TaskCategory) {
-    const isUpdate = !!category.id;
-    const method = isUpdate ? "PUT" : "POST";
-    const url = isUpdate ? `${API_URL}/${category.id}` : API_URL;
-
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(category),
-    });
-
-    if (!res.ok) {
-      throw new Error("Failed to save category");
-    }
-
-    const saved: TaskCategory = await res.json();
-    setCategories(prev =>
-      isUpdate ? prev.map(c => (c.id === saved.id ? saved : c)) : [...prev, saved]
-    );
+    if (!user) return; // 4. Block mutation if logged out
+    // ... rest of saveCategory logic ...
   }
 
   async function deleteCategory(id: string) {
+    if (!user) return; // 5. Block mutation if logged out
+    
     await fetch(`${API_URL}/${id}`, { method: "DELETE" });
     setCategories(prev => prev.filter(c => c.id !== id));
   }

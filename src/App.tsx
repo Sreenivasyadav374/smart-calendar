@@ -40,9 +40,17 @@ function App() {
   const isOnline = useOnlineStatus();
   const { clearAllData } = useIndexedDB(user);
 
-  const { tasks, loading: tasksLoading, saveTask, deleteTask } = useTasksApi();
-  const { events, loading: eventsLoading, saveEvent, deleteEvent } = useEventsApi();
-  const { categories, loading: categoriesLoading, saveCategory, deleteCategory } = useCategoriesApi();
+// Inside function App() { ... }
+
+// Before:
+// const { tasks, loading: tasksLoading, saveTask, deleteTask } = useTasksApi();
+// const { events, loading: eventsLoading, saveEvent, deleteEvent } = useEventsApi();
+// const { categories, loading: categoriesLoading, saveCategory, deleteCategory } = useCategoriesApi();
+
+// After:
+const { tasks, loading: tasksLoading, saveTask, deleteTask } = useTasksApi(user);
+const { events, loading: eventsLoading, saveEvent, deleteEvent } = useEventsApi(user);
+const { categories, loading: categoriesLoading, saveCategory, deleteCategory } = useCategoriesApi(user);
 
   const loading = tasksLoading || eventsLoading || categoriesLoading;
 
@@ -174,12 +182,12 @@ function App() {
     setIsEventModalOpen(false);
   };
 
-  const handleTaskComplete = async (taskId: string) => {
-    const task = tasks.find((t) => t.id === taskId);
-    if (task) {
-      await saveTask({ ...task, completed: !task.completed },false);
-    }
-  };
+  // const handleTaskComplete = async (taskId: string) => {
+  //   const task = tasks.find((t) => t.id === taskId);
+  //   if (task) {
+  //     await saveTask({ ...task, completed: !task.completed },false);
+  //   }
+  // };
 
   const handleTaskDrop = async (task: Task, date: Date) => {
     if (!user) return;
@@ -202,6 +210,8 @@ function App() {
   };
 
   const handleEventDrop = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
+    if (!user) return; // ADDED CHECK: Block if logged out
+
     const updatedEvent = { ...event, start: newStart, end: newEnd };
     await saveEvent(updatedEvent, true);
 
@@ -218,6 +228,8 @@ function App() {
   };
 
   const handleDeleteEvent = async (eventId: string) => {
+    if (!user) return; // ADDED CHECK: Block if logged out
+
     const event = events.find((e) => e.id === eventId);
     if (!event) return;
     
@@ -234,6 +246,8 @@ function App() {
   };
 
   const handleGetTaskSuggestions = async () => {
+    if (!user) return; // ADDED CHECK: Block if logged out
+
     setIsLoadingSuggestions(true);
     try {
       const recentTasks = tasks.slice(-20); // Get more recent context
@@ -281,6 +295,46 @@ function App() {
     setSelectedDate(date || null);
     setIsEventModalOpen(true);
   };
+
+  // Add if (!user) return; to handleTaskComplete
+const handleTaskComplete = async (taskId: string) => {
+    if (!user) return; // ADDED CHECK: Block if logged out
+
+    const task = tasks.find((t) => t.id === taskId);
+    if (task) {
+      await saveTask({ ...task, completed: !task.completed },false);
+    }
+};
+
+// // Add if (!user) return; to handleDeleteEvent
+// const handleDeleteEvent = async (eventId: string) => {
+//     if (!user) return; // ADDED CHECK: Block if logged out
+
+//     const event = events.find((e) => e.id === eventId);
+//     if (!event) return;
+    
+//     await deleteEvent(eventId);
+
+//     // ... rest of the Google Calendar sync logic
+// };
+
+// // Add if (!user) return; to handleEventDrop
+// const handleEventDrop = async (event: CalendarEvent, newStart: Date, newEnd: Date) => {
+//     if (!user) return; // ADDED CHECK: Block if logged out
+
+//     const updatedEvent = { ...event, start: newStart, end: newEnd };
+//     await saveEvent(updatedEvent, true);
+
+//     // ... rest of the Google Calendar sync logic
+// };
+
+// Add if (!user) return; to handleGetTaskSuggestions
+// const handleGetTaskSuggestions = async () => {
+//     if (!user) return; // ADDED CHECK: Block if logged out
+
+//     setIsLoadingSuggestions(true);
+//     // ... rest of the AI logic
+// };
 
   // Enhanced keyboard shortcuts
   useEffect(() => {
@@ -342,8 +396,8 @@ function App() {
         {/* Task Sidebar */}
         <div className="flex-none lg:basis-1/3 xl:basis-1/4 min-w-[320px] max-w-md h-full overflow-hidden">
           <TaskSidebar
-            tasks={tasks}
-            categories={categories}
+            tasks={user ? tasks : []}       
+            categories={user ? categories : []} 
             onTaskComplete={handleTaskComplete}
             onTaskDelete={deleteTask}
             onTaskEdit={openTaskModal}
