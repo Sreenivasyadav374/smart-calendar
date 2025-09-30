@@ -1,13 +1,10 @@
-// useEventsApi.ts (Modified)
-
 import { useState, useEffect } from "react";
-import { CalendarEvent, User } from "../types"; // Assuming User type is imported
+import { CalendarEvent, User  } from "../types";
 
 const API_URL = process.env.NODE_ENV === 'production' 
   ? "/api/events" 
   : "http://localhost:5000/api/events";
 
-// 1. Updated hook to accept user object
 export function useEventsApi(user: User | null) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +17,7 @@ export function useEventsApi(user: User | null) {
       return;
     }
 
-    setLoading(true); // Set loading true before starting fetch
+    setLoading(true);
     fetch(API_URL)
       .then(res => res.json())
       .then((data: CalendarEvent[]) => {
@@ -34,28 +31,63 @@ export function useEventsApi(user: User | null) {
       })
       .catch(err => {
         console.error("Failed to fetch events", err);
-        setEvents([]); 
+        setEvents([]); // Set empty array on error to prevent blank page
       })
       .finally(() => setLoading(false));
-  }, [user]); // 3. Added user to dependency array
+  }, [user]);
 
   async function saveEvent(event: CalendarEvent, isUpdate: boolean = false) {
-    if (!user) return; // 4. Block operation if logged out
-
+    if (!user) return;
     const method = isUpdate ? "PUT" : "POST";
     const url = isUpdate ? `${API_URL}/${event.id}` : API_URL;
 
-    // ... rest of saveEvent logic ...
-    
-    // ...
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Failed to save event: ${res.status} - ${errorText}`);
+      }
+
+      const saved: CalendarEvent = await res.json();
+      
+      // Ensure dates are properly converted
+      const savedWithDates = {
+        ...saved,
+        start: new Date(saved.start),
+        end: new Date(saved.end),
+      };
+      
+      setEvents(prev =>
+        isUpdate 
+          ? prev.map(e => (e.id === savedWithDates.id ? savedWithDates : e)) 
+          : [...prev, savedWithDates]
+      );
+    } catch (error) {
+      console.error("Save event error:", error);
+      throw error;
+    }
   }
 
   async function deleteEvent(id: string) {
-    if (!user) return; // 5. Block operation if logged out
-
-    // ... rest of deleteEvent logic ...
-    
-    // ...
+    if (!user) return;
+    try {
+      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Failed to delete event: ${res.status} - ${errorText}`);
+      }
+      
+      setEvents(prev => prev.filter(e => e.id !== id));
+    } catch (error) {
+      console.error("Delete event error:", error);
+      throw error;
+    }
   }
 
   return { events, loading, saveEvent, deleteEvent };
