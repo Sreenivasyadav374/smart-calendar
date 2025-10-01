@@ -20,6 +20,7 @@ import { useTasksApi } from "./hooks/useTasksApi";
 import { useEventsApi } from "./hooks/useEventsApi";
 import { useCategoriesApi } from "./hooks/useCategoriesApi";
 import { BarChart3 } from "lucide-react";
+import { aiService as geminiService } from "./utils/llmModel";
 
 
 function App() {
@@ -253,7 +254,7 @@ const { categories, loading: categoriesLoading, saveCategory, deleteCategory } =
       const recentTasks = tasks.slice(-20); // Get more recent context
       const currentDay = format(new Date(), "EEEE");
       const userGoals = ['productivity', 'health', 'learning']; // Could be user-configurable
-      const suggestions = await openaiService.generateTaskSuggestions(recentTasks, currentDay, userGoals);
+      const suggestions = await geminiService.generateTaskSuggestions(recentTasks, currentDay, userGoals);
       console.log("AI Suggestions:", suggestions);
       setAiSuggestions(suggestions);
     } catch (error) {

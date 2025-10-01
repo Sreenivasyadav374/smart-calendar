@@ -16,6 +16,8 @@
     "@fullcalendar/list": "^6.1.19",
     "@fullcalendar/react": "^6.1.18",
     "@fullcalendar/timegrid": "^6.1.18",
+    "@langchain/core": "^0.3.78",
+    "@langchain/google-genai": "^0.2.18",
     "@react-oauth/google": "^0.12.2",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.11",
