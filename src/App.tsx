@@ -154,34 +154,45 @@ const { categories, loading: categoriesLoading, saveCategory, deleteCategory } =
     setIsTaskModalOpen(false);
   };
 
-  const handleEventSave = async (eventData: Omit<CalendarEvent, "id" | "userId">) => {
-    if (!user) return;
 
-    const isUpdate = !!selectedEvent?.id;
-    
-    const event: CalendarEvent = {
-      ...eventData,
-      id: isUpdate ? selectedEvent.id : uuidv4(),
-      userId: user.id,
-    };
+const handleEventSave = async (eventData: Omit<CalendarEvent, "id" | "userId">) => {
+  if (!user) return;
 
-    await saveEvent(event, isUpdate);
+  const isUpdate = !!selectedEvent?.id;
 
-    // Sync with Google Calendar if online and not a Google event
-    if (user && isOnline && !event.isGoogleEvent) {
-      try {
-        const googleEvent = await googleCalendarAPI.createEvent(eventData);
-        console.log("Created Google Calendar event:", googleEvent);
-        await saveEvent({ ...googleEvent, userId: user.id }, false);
-
-      } catch (error) {
-        console.error("Failed to sync event with Google Calendar:", error);
-      }
-    }
-
-    setSelectedEvent(null);
-    setIsEventModalOpen(false);
+  // Create/Update a single DB event first
+  const event: CalendarEvent = {
+    ...eventData,
+    id: isUpdate ? selectedEvent!.id : uuidv4(),
+    userId: user.id,
+    isGoogleEvent: false,
   };
+
+  // Save once
+  const saved = await saveEvent(event, isUpdate);
+
+  // Sync to Google (then UPDATE the same event)
+  if (user && isOnline && !event.isGoogleEvent) {
+    try {
+      const googleEvent = await googleCalendarAPI.createEvent(eventData);
+
+      // Update the same DB record with googleEventId
+      await saveEvent(
+        {
+          ...(saved ?? event),                // if saveEvent returns saved event; else fallback
+          googleEventId: googleEvent.id,      // map correctly based on your google response
+          isGoogleEvent: true,                // or syncedToGoogle: true
+        },
+        true                                  // <-- UPDATE, not CREATE
+      );
+    } catch (error) {
+      console.error("Failed to sync event with Google Calendar:", error);
+    }
+  }
+
+  setSelectedEvent(null);
+  setIsEventModalOpen(false);
+};
 
   // const handleTaskComplete = async (taskId: string) => {
   //   const task = tasks.find((t) => t.id === taskId);

@@ -4,7 +4,7 @@ import { PromptTemplate } from '@langchain/core/prompts';
 import { z } from 'zod';
 import { Task, AITaskSuggestion } from '../types'; // Adjust path if necessary
 
-const apiKey = import.meta.env.GOOGLE_API;
+const apiKey = import.meta.env.VITE_GOOGLE_API_KEY;
 
 // Initialize the Gemini Model (Picks up GOOGLE_API_KEY from env)
 const llm = new ChatGoogleGenerativeAI({
