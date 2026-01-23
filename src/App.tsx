@@ -297,6 +297,10 @@ const handleEventSave = async (eventData: Omit<CalendarEvent, "id" | "userId">) 
     setAiSuggestions((prev) => prev.filter((s) => s !== suggestion));
   };
 
+  const handleClearSuggestions = () => {
+    setAiSuggestions([]);
+  };
+
   const openTaskModal = (task?: Task) => {
     setSelectedTask(task || null);
     setIsTaskModalOpen(true);
@@ -417,6 +421,7 @@ const handleTaskComplete = async (taskId: string) => {
             onTaskSuggestions={handleGetTaskSuggestions}
             suggestions={aiSuggestions}
             onAcceptSuggestion={handleAcceptSuggestion}
+            onClearSuggestions={handleClearSuggestions}
             isLoadingSuggestions={isLoadingSuggestions}
           />
         </div>
