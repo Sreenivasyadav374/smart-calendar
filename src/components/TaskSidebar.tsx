@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Filter, Search, Sparkles, Calendar, Clock, Flag, CheckCircle2, Circle, Trash2, Edit3, SortAsc, SortDesc } from "lucide-react";
+import { Plus, Filter, Search, Sparkles, Calendar, Clock, Flag, CheckCircle2, Circle, Trash2, Edit3, SortAsc, SortDesc, X } from "lucide-react";
 import { Task, TaskCategory, AITaskSuggestion } from "../types";
 import { PRIORITY_COLORS } from "../utils/constants";
 
@@ -14,6 +14,7 @@ interface TaskSidebarProps {
   onTaskSuggestions: () => void;
   suggestions: AITaskSuggestion[];
   onAcceptSuggestion: (suggestion: AITaskSuggestion) => void;
+  onClearSuggestions: () => void;
   isLoadingSuggestions: boolean;
 }
 
@@ -27,6 +28,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   onTaskSuggestions,
   suggestions,
   onAcceptSuggestion,
+  onClearSuggestions,
   isLoadingSuggestions,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -216,93 +218,100 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
   return (
     <div className="w-full h-full bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Tasks</h2>
-          <div className="flex items-center gap-2">
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-900 space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">Tasks</h2>
+          <div className="flex items-center gap-1">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onTaskSuggestions}
               disabled={isLoadingSuggestions}
-              className="p-2 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-xl transition-colors disabled:opacity-50"
+              className="p-1.5 text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors disabled:opacity-50"
               title="Get AI task suggestions"
             >
               {isLoadingSuggestions ? (
-                <div className="w-5 h-5 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin" />
               ) : (
-                <Sparkles size={20} />
+                <Sparkles size={18} />
               )}
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={onNewTask}
-              className="p-2 bg-blue-600 text-white hover:bg-blue-700 rounded-xl transition-colors shadow-lg"
+              className="p-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors shadow-lg"
             >
-              <Plus size={20} />
+              <Plus size={18} />
             </motion.button>
           </div>
         </div>
 
         {/* Search */}
-        <div className="relative mb-4">
-          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search tasks..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-all"
+            className="w-full pl-10 pr-3 py-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-all"
           />
         </div>
 
-        {/* Filter Toggle */}
-        <div className="flex items-center justify-between">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-              showFilters 
-                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            <Filter size={16} />
-            Filters
-          </motion.button>
+        {/* Control Panel */}
+        <div className="space-y-1.5">
+          {/* First Row: Filters & Show Completed */}
+          <div className="flex items-center gap-1.5">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all flex-1 ${
+                showFilters 
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              <Filter size={14} />
+              <span>Filters</span>
+            </motion.button>
 
-          {/* Sort Controls */}
-          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowCompleted(!showCompleted)}
+              className={`flex-1 px-2.5 py-1.5 text-xs font-medium rounded-md transition-all ${
+                showCompleted
+                  ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
+                  : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600"
+              }`}
+            >
+              {showCompleted ? "Hide" : "Show"} Completed
+            </button>
+          </div>
+
+          {/* Second Row: Sort Controls */}
+          <div className="flex items-center gap-1.5">
+            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">Sort:</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              className="text-xs bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded px-2 py-1"
+              className="flex-1 text-xs bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1.5 text-gray-900 dark:text-gray-100 transition-colors"
             >
               <option value="dueDate">Due Date</option>
               <option value="priority">Priority</option>
               <option value="created">Created</option>
               <option value="title">Title</option>
             </select>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="p-1 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              className="p-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
+              title={`Sort ${sortOrder === 'asc' ? 'descending' : 'ascending'}`}
             >
-              {sortOrder === 'asc' ? <SortAsc size={16} /> : <SortDesc size={16} />}
-            </button>
+              {sortOrder === 'asc' ? <SortAsc size={14} /> : <SortDesc size={14} />}
+            </motion.button>
           </div>
-
-          <button
-            onClick={() => setShowCompleted(!showCompleted)}
-            className={`px-3 py-2 text-sm font-medium rounded-lg transition-all ${
-              showCompleted
-                ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300"
-                : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
-            }`}
-          >
-            {showCompleted ? "Hide" : "Show"} Completed
-          </button>
         </div>
 
         {/* Filters Panel */}
@@ -356,12 +365,23 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10"
+            className="border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10 max-h-96 overflow-y-auto"
           >
             <div className="p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles size={18} className="text-purple-600 dark:text-purple-400" />
-                <h3 className="font-semibold text-purple-900 dark:text-purple-300">AI Suggestions</h3>
+              <div className="flex items-center gap-2 mb-3 sticky top-0 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/10 dark:to-indigo-900/10 pb-2 justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-purple-600 dark:text-purple-400" />
+                  <h3 className="font-semibold text-purple-900 dark:text-purple-300">AI Suggestions</h3>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={onClearSuggestions}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  title="Clear suggestions"
+                >
+                  <X size={18} />
+                </motion.button>
               </div>
               <div className="space-y-3">
                 {suggestions.map((suggestion, index) => (
@@ -394,7 +414,7 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => onAcceptSuggestion(suggestion)}
-                        className="px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+                        className="px-3 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm flex-shrink-0"
                       >
                         Add
                       </motion.button>
